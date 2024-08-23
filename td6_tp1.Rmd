@@ -1,0 +1,140 @@
+---
+title: "Tecnología Digital VI: Trabajo Práctico 1"
+author: "Emiliana Verdún, Mariana Zunino"
+date: "2024-08-15"
+output: pdf_document
+---
+
+```{r libr, echo=FALSE}
+#install.packages("rpart")
+library(rpart)
+#install.packages("Metrics")
+library(Metrics)
+```
+
+## Introducción
+
+Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones, que tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es.
+Dicho conjunto de datos fue obtenido en Kaggle y se encuentra disponible en el siguiente link: https://www.kaggle.com/datasets/sooyoungher/smoking-drinking-dataset
+
+
+Los atributos predictores descriptos en el dataset son 22 e incluyen: 
+"Age" (numérico), "Sex" (Categórico), "Height", "Weight", visión en cada ojo (binario: 0=normal, 1=abnormal), escucha en cada oído (binario: 0=normal, 1=abnormal), valores de colesterol, presión arterial y diferentes parámetros relevantes en salud.
+
+La elección del dataset se debe a que resulta de caracter interesante y científico, además del hecho de que está muy completo y no cuenta con valores faltantes. Su carácter científico permite a la vez realizar divisiones razonables a la hora de la toma de decisiones dentro del árbol.
+
+
+
+## Preparación de datos
+Se cargan los datos a utilizar.
+
+```{r}
+#setwd('c:/Users/Mariana/OneDrive/Documentos/TDVI/TPs')
+data <- read.csv("drinking_dataset.csv")
+```
+
+Descripción de las variables principales del dataset
+```{r}
+summary(data)
+str(data)
+```
+Se convierte a factor las columnas de caracteres de "sex" y la columna para la predicción de "DRK_YN".
+Se convierte la columna de observaciones de clase en binario, para poder luego utilizar correctamente las métricas.
+```{r}
+data$sex <- as.factor(data$sex)
+data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
+```
+
+
+## Including Plots
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+## Árbol de Decisión
+```{r division, echo=FALSE}
+set.seed(1234)
+nobs <- nrow(data)
+#obtengo el 70% del dataset y se lo asigno a train
+itrain <- sample(nobs, 0.7*nobs)
+train <- data[itrain, ]
+resto <- data[-itrain,]
+
+#con el resto del dataset consigo 15% para validación y 15% para test
+nobs2 <- nrow(resto) 
+ival <- sample(nobs2, 0.5*nobs2)
+val <- resto[ival,]
+test <- resto[-ival,]
+```
+
+```{r}
+set.seed(1234)
+tree <- rpart(formula = DRK_YN ~ sex + age + height + weight + waistline + sight_left + sight_right + hear_left + hear_right + SBP + DBP + BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride + hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT + gamma_GTP + SMK_stat_type_cd,
+              data = train, 
+            method = "class")
+```
+
+```{r hiperparametros}
+tree$control
+```
+Como hiperparámetro por defecto se toma un valor de minsplit = 20, es decir, que en una hoja del árbol deben haber por lo menos 20 observaciones para poder realizar un split y crear nuevas regiones.
+Por otro lado, se establece que como mínimo una hoja debe tener 7 observaciones con el valor default de minbucket y que como máxima profundidad el árbol puede tener 30 hojas.
+
+
+Con estos hiperparámetros por defecto y con el árbol obtenido, obtenemos la siguiente visualización del árbol de clasificación.
+```{r grafico_arbol}
+library(rpart.plot)
+rpart.plot(tree)
+```
+
+## Performance del modelo default
+
+Con el conjunto de testing realizamos las predicciones queridas.
+```{r}
+prediccion_test <- predict(tree, test, type="class")
+prediccion_probas <- predict(tree,test,type="prob")
+
+#se agrupan los valores reales y las predicciones en dataframe de resultados
+resultados <- data.frame(
+  obs = test$DRK_YN, #valor verdadero
+  pred = prediccion_test, #valor predicho
+  prob = prediccion_probas #probas predichas
+)
+
+resultados
+```
+
+Una vez obtenidos estos resultados, se puede proceder a realizar un análisis de performance del modelo, para lo cual se explorarán la matriz de confusión resultante y los valores de accuracy, precision y recall, el F1-score y el valor de AUC-ROC.
+```{r matrizConfusion}
+matriz_confusion <- table(Real=test$DRK_YN, Predicho=prediccion_test)
+matriz_confusion
+```
+Se puede visualizar en la matriz cómo, para valores reales negativos (personas no alcohólica), las predicciones son bastante mejores que para predecir aquellas que sí lo hacen realmente. ---¿por que?
+
+```{r scores}
+true_positive <- matriz_confusion["1","1"]
+true_negative <- matriz_confusion["0","0"]
+false_positive <- matriz_confusion["0","1"]
+false_negative <- matriz_confusion["1","0"]
+pred_proba_pos <- prediccion_probas[, "1"] #calculo de probabilidades para clase "Y"
+observed_classes <- ifelse(test$DRK_YN == "1", 1, 0)
+
+accuracy <- (true_positive+true_negative)/sum(matriz_confusion) #(TP + TN) / Total
+precision <- true_positive/(true_positive+false_positive)       #TP / (TP+FP)
+recall <- true_positive/(true_positive+false_negative)          #TP / (TP+FN)
+f1_score <- 2*(precision*recall)/(precision+recall)           # 2*prec*rec/(prec+rec)
+auc_roc <- auc(observed_classes, pred_proba_pos)
+```
+Con el modelo propuesto en el punto 3, sin tocar los hiperparámetros, se llega a un accuracy de `r accuracy`, una precision de `r precision`, un recall de `r recall`, f1-score de `r f1_score` y un área de `r auc_roc`.
+En general, no parece tan malo para ser el modelo default pero puede ser mucho mejor optimizado adaptando los hiperparámetros.
+
+
+```{r}
+
+```
+
+
