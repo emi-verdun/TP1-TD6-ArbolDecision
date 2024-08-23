@@ -25,7 +25,7 @@ La elección del dataset se debe a que resulta de caracter interesante y cientí
 
 
 
-## Preparación de datos
+# Ejercicio 2
 Se cargan los datos a utilizar.
 
 ```{r}
@@ -45,17 +45,62 @@ data$sex <- as.factor(data$sex)
 data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
 ```
 
+## Visualizaciones
 
-## Including Plots
+```{r plots}
+cant_f <- sum(data$sex == "Female")
+cant_m <- sum(data$sex == "Male")
+cant_alcoholico_f <- sum(data$sex == "Female" & data$DRK_YN == 1)
+cant_alcoholico_m <- sum(data$sex == "Male" & data$DRK_YN == 1)
+cant_NO_alcoholico_f <- sum(data$sex == "Female" & data$DRK_YN == 0)
+cant_NO_alcoholico_m <- sum(data$sex == "Male" & data$DRK_YN == 0)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+#cant_f
+#cant_alcoholico_f
+#cant_NO_alcoholico_f
+#cant_m
+#cant_alcoholico_m
+#cant_NO_alcoholico_m
+
+prop_alcoholicos <- ((cant_alcoholico_f + cant_alcoholico_m)/(cant_f + cant_m))
+prop_NO_alcoholicos <- ((cant_NO_alcoholico_f + cant_NO_alcoholico_m)/(cant_f + cant_m))
+
+prop_alcoholicos_f <- cant_alcoholico_f/cant_f
+prop_NO_alcoholicos_f <- cant_NO_alcoholico_f/cant_f
+
+prop_alcoholicos_m <- cant_alcoholico_m/cant_m
+prop_NO_alcoholicos_m <- cant_NO_alcoholico_m/cant_m
+
+prop_alcoholicos
+prop_NO_alcoholicos
+prop_alcoholicos_f
+prop_NO_alcoholicos_f
+prop_alcoholicos_m
+prop_NO_alcoholicos_m
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+prop_alc <- c(prop_alcoholicos_f, prop_alcoholicos_m)
+sex <- c("Femenino", "Masculino")
+val_max <- max(prop_alc)
 
 
-## Árbol de Decisión
+# Crear el gráfico de barras
+barplot(prop_alc, names.arg = sex, col = "lightblue",
+        main = "Proporción de Alcoholicos por Sexo", xlab = "Sexo",
+        ylim = c(0, val_max + 0.2))
+```
+
+
+``` {r}
+edades_alc <- data$age[data$DRK_YN == 1]
+hist(edades_alc, main="Histograma de Edades (Solo Alcohólicos)", 
+     xlab="Edades", ylab="Frecuencia", col="lightblue", border="black")
+```
+
+
+
+# Ejercicio 3
 ```{r division, echo=FALSE}
 set.seed(1234)
 nobs <- nrow(data)
@@ -104,8 +149,6 @@ resultados <- data.frame(
   pred = prediccion_test, #valor predicho
   prob = prediccion_probas #probas predichas
 )
-
-resultados
 ```
 
 Una vez obtenidos estos resultados, se puede proceder a realizar un análisis de performance del modelo, para lo cual se explorarán la matriz de confusión resultante y los valores de accuracy, precision y recall, el F1-score y el valor de AUC-ROC.
@@ -121,7 +164,7 @@ true_negative <- matriz_confusion["0","0"]
 false_positive <- matriz_confusion["0","1"]
 false_negative <- matriz_confusion["1","0"]
 pred_proba_pos <- prediccion_probas[, "1"] #calculo de probabilidades para clase "Y"
-observed_classes <- ifelse(test$DRK_YN == "1", 1, 0)
+observed_classes <- ifelse(test$DRK_YN=="1", 1, 0)
 
 accuracy <- (true_positive+true_negative)/sum(matriz_confusion) #(TP + TN) / Total
 precision <- true_positive/(true_positive+false_positive)       #TP / (TP+FP)
@@ -133,7 +176,68 @@ Con el modelo propuesto en el punto 3, sin tocar los hiperparámetros, se llega 
 En general, no parece tan malo para ser el modelo default pero puede ser mucho mejor optimizado adaptando los hiperparámetros.
 
 
+## Optimización de modelo
 ```{r}
+cp = 0
+xval = 0
+valores_depth = c(1,2,3,4,5,6,7,8,9,10)
+valores_split = c(10,20,30,40,50)
+valores_bucket = c(2,4,6,8,10)
+
+# Crear un dataframe para guardar los resultados
+results <- data.frame(maxdepth = integer(), minsplit = integer(), minbucket = integer(), auc = numeric())
+
+for (d in valores_depth){
+  for (b in valores_bucket){
+    for (s in valores_split){
+      tree <- rpart(formula=DRK_YN ~ sex + age + height + weight + waistline + sight_left + sight_right + hear_left + hear_right + SBP + DBP + BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride + hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT + gamma_GTP + SMK_stat_type_cd,
+          data = train, method = "class",
+          control = rpart.control(
+          cp = 0,          
+          xval = 0,        
+          maxdepth = d,
+          minsplit = s,
+          minbucket= b
+        )
+      )
+      predicted_probs <- predict(tree, val, type = "prob")[, "1"]
+      observed_classes <- ifelse(val$DRK_YN == "1", 1, 0)
+      auc_value <- auc(observed_classes, predicted_probs)
+    
+      results <- rbind(results, data.frame(maxdepth = d, minsplit = s,                                      minbucket = b, auc = auc_value))
+  
+    }
+  }
+}
+      
+best_result <- results[which.max(results$auc), ]
+best_result
+
+tree <-  rpart(formula=DRK_YN ~ sex + age + height + weight + waistline + sight_left + sight_right + hear_left + hear_right + SBP + DBP + BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride + hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT + gamma_GTP + SMK_stat_type_cd,
+          data = train, method = "class",
+          control = rpart.control(
+          cp = 0,          
+          xval = 0,        
+          maxdepth = 8,
+          minsplit = 40,
+          minbucket= 2
+        )
+      )
+
+
+obs = test$DRK_YN #valor verdadero
+pred = predict(tree,test,type="class")
+
+acc_score <- accuracy(obs,test)
+
+obs = val$DRK_YN #valor verdadero
+pred = predict(tree,val,type="class")
+
+acc_score <- accuracy(obs,test)
+
+obs = train$DRK_YN #valor verdadero
+pred = predict(tree,train,type="class")
+acc_score <- accuracy(obs,test)
 
 ```
 
