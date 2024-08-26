@@ -46,6 +46,7 @@ data$sex <- as.factor(data$sex)
 data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
 ```
 
+
 ## Visualizaciones
 
 ```{r plots}
@@ -128,17 +129,32 @@ tree <- rpart(formula = DRK_YN ~ sex + age + height + weight + waistline + sight
 tree$control
 ```
 Como hiperparámetro por defecto se toma un valor de minsplit = 20, es decir, que en una hoja del árbol deben haber por lo menos 20 observaciones para poder realizar un split y crear nuevas regiones.
-Por otro lado, se establece que como mínimo una hoja debe tener 7 observaciones con el valor default de minbucket y que como máxima profundidad el árbol puede tener 30 hojas.
-
+Por otro lado, se establece que como mínimo una hoja debe tener 7 observaciones con el valor default de minbucket y que como máxima profundidad el árbol puede tener 30 niveles.
+Además, aparecen otros parámetros como un cp de 0.01 y xval de 10. --¿Es necesario poner todos y que son?
 
 Con estos hiperparámetros por defecto y con el árbol obtenido, obtenemos la siguiente visualización del árbol de clasificación.
 ```{r grafico_arbol}
 rpart.plot(tree)
 ```
 
-## Performance del modelo default
+El árbol obtenido con los parámetros default tiene una profundidad de 3, siendo el primer split realizado a partir del sexo de la persona. Como se pudo visualizar en uno de los gráficos del punto 2, las personas de sexo masculino tienen una tendencia mucho mayor al alcoholismo que las de sexo femenino. Se puede ver en este primer split que a todas las muestras de sexo femenino las clasifica como no alcohólicas, de manera un poco brusca teniendo en cuenta que sí hay cierta proporción de mujeres alcoholicas en los datos. 
+Luego, se continúan generando más regiones de decisión con los casos de sexo masculino. Se toma como segundo criterio en los hombres si el valor de gamma_GTP es menor a 36: en el caso que no lo sea, clasifica el individuo como alcohólico; si lo es, entra en cuestión la edad del individuo. Si la edad es mayor o igual 53 con un gamma_GTP menor a 36, esa persona no es considerada alcohólica por el modelo; en cambio, si tiene una edad menor a 53, se considera que sí lo es.
+A fin de cuentas, el modelo clasifica al 57% de los casos como no alcohólicos mientras que el otro 43% es considerado alcohólico. Esta clasificación tiene ciertos errores y generalizaciones que afectan a su rendimiento y se buscará mejorar en los próximos ejercicios.
 
-Con el conjunto de testing realizamos las predicciones queridas.
+## Importancia de los atributos e identificación de variables principales
+```{r}
+variable_importance <- tree$variable.importance
+barplot(sort(variable_importance, decreasing = TRUE), 
+        main = "Importancia de las Variables Predictoras",
+        xlab = "Variables",
+        ylab = "Importancia",
+        las = 2,          # Rotar las etiquetas en el eje x
+        col = "lightblue")
+```
+En este gráfico se puede visualizar cuáles variables son las más coincidentes o que mayor ayudan a clasificar a la muestra, siendo el sexo el más importante, aunque gamma_GTP y edad, que son las otras 2 variables visibles en el árbol formado no parecen tener tanta importancia y esto resulta un poco chocante.
+
+# Ejercicio 4
+Con tal de poder analizar el rendimiento del modelo con los hiperparámetros default, se prueban diferentes métricas a partir de predicciones realizadas sobre el conjunto de test tomado del dataset.
 ```{r}
 prediccion_test <- predict(tree, test, type="class")
 prediccion_probas <- predict(tree,test,type="prob")
@@ -156,27 +172,33 @@ Una vez obtenidos estos resultados, se puede proceder a realizar un análisis de
 matriz_confusion <- table(Real=test$DRK_YN, Predicho=prediccion_test)
 matriz_confusion
 ```
-Se puede visualizar en la matriz cómo, para valores reales negativos (personas no alcohólica), las predicciones son bastante mejores que para predecir aquellas que sí lo hacen realmente. ---¿por que?
+Se puede visualizar en la matriz cómo, para valores reales negativos (personas no alcohólica), las predicciones son bastante mejores que para predecir aquellas que sí lo son realmente. Esto puede deberse al enfoque generalizador y un poco tosco del modelo no refinado, que por ejemplo clasifica a todas las personas del sexo femenino como no alcohólicas y de esta manera pasa por alto muchos casos donde sí lo son, causando falsos negativos.
 
 ```{r scores}
 true_positive <- matriz_confusion[2,2]
 true_negative <- matriz_confusion[1,1]
 false_positive <- matriz_confusion[1,2]
 false_negative <- matriz_confusion[2,1]
-pred_proba_pos <- prediccion_probas[, "1"] #calculo de probabilidades para clase "Y"
-observed_classes <- ifelse(test$DRK_YN=="1", 1, 0)
+pred_proba_pos <- prediccion_probas[, "1"] #calculo de probabilidades para clase "1",                                             es decir "Y"
+observado <- test$DRK_YN
 
 accuracy <- (true_positive+true_negative)/sum(matriz_confusion) #(TP + TN) / Total
 precision <- true_positive/(true_positive+false_positive)       #TP / (TP+FP)
 recall <- true_positive/(true_positive+false_negative)          #TP / (TP+FN)
-f1_score <- 2*(precision*recall)/(precision+recall)           # 2*prec*rec/(prec+rec)
-auc_roc <- auc(observed_classes, pred_proba_pos)
+f1_score <- (2*precision*recall)/(precision+recall)           # 2*prec*rec/(prec+rec)
+auc_roc <- auc(observado, pred_proba_pos)
 ```
-Con el modelo propuesto en el punto 3, sin tocar los hiperparámetros, se llega a un accuracy de `r accuracy`, una precision de `r precision`, un recall de `r recall`, f1-score de `r f1_score` y un área de `r auc_roc`.
+Con el modelo propuesto en el punto 3, sin tocar los hiperparámetros, se llega a un accuracy de `r accuracy`, es decir, del total de predicciones sobre el conjunto de test se predijo correctamente esa proporción. Luego, de la cantidad que fueron predichas como 1 (alcoholico), efectivamente se acertó con una precision de `r precision`; y de los casos que verdaderamente pertenecen a la clase 1, se predijo como tal (recall) una proporción de `r recall`. Con estas 2 métricas, obtenemos el f1-score, que tiene un valor de `r f1_score`.
+Por último, interesa la métrica del AUC-ROC, es decir, el área bajo la curva de ROC (mide la relación entre verdaderos positivos y falsos positivos) que permite indicar la capacidad predictora del modelo. Esta tomó un valor de `r auc_roc`.
+
 En general, no parece tan malo para ser el modelo default pero puede ser mucho mejor optimizado adaptando los hiperparámetros.
 
 
-## Optimización de modelo
+# Ejercicio 5
+Para la optimización del modelo, se toman ciertos valores elegidos a mano con tal de realizar una búsqueda de parámetros que optimicen el modelo a partir de grid search.
+Se establecen cp y xval en 0 y se exploran diferentes combinaciones de maxdepth, minsplit y minbucket.
+Se almacena el mejor resultado (aquellos valores con los cuales se obtenga el modelo con el cual se maximiza AUC-ROC con las predicciones sobre el conjunto de validación) y se entrena el modelo con esos valores como hiperparámetros.
+
 ```{r}
 cp = 0
 xval = 0
@@ -184,8 +206,8 @@ valores_depth = c(5,6,7,8,9,10,15,20)
 valores_split = c(5,10,20,30)
 valores_bucket = c(10,15,20, 30, 40, 50)
 
-# Crear un dataframe para guardar los resultados
-results <- data.frame(maxdepth = integer(), minsplit = integer(), minbucket = integer(), auc = numeric())
+#Se crea dataframe para almacenar resultados de combinaciones y poder visualizar
+resultados <- data.frame(maxdepth = integer(), minsplit = integer(), minbucket = integer(), auc = numeric())
 
 for (d in valores_depth){
   for (b in valores_bucket){
@@ -201,41 +223,86 @@ for (d in valores_depth){
         )
       )
       predicted_probs <- predict(tree, val, type = "prob")[, "1"]
-      observed_classes <- ifelse(val$DRK_YN == "1", 1, 0)
-      auc_value <- auc(observed_classes, predicted_probs)
+      observed_classes <- val$DRK_YN
+      auc_valor <- auc(observed_classes, predicted_probs)
     
-      results <- rbind(results, data.frame(maxdepth = d, minsplit = s,                                      minbucket = b, auc = auc_value))
+      resultados <- rbind(resultados, data.frame(maxdepth = d, minsplit = s,                                      minbucket = b, auc = auc_valor))
   
     }
   }
 }
       
-best_result <- results[which.max(results$auc), ]
-best_result
+mejor_resultado <- resultados[which.max(resultados$auc), ]
+mejor_resultado
+```
 
 
+```{r visualizaciones}
+#install.packages("ggplot2")
+#library(ggplot2)
+
+#ggplot(resultados, aes(x = maxdepth, y = auc, color = factor(minsplit), group = interaction(minsplit, minbucket))) +
+#  geom_line() +
+#  geom_point() +
+#  labs(
+#    title = "Impacto de maxdepth en AUC-ROC para diferentes combinaciones de minsplit y minbucket",
+#    x = "maxdepth",
+#    y = "AUC-ROC",
+#    color = "minsplit"
+#  ) +
+#  theme_minimal()
+
+#ggplot(resultados, aes(x = maxdepth, y = auc, color = factor(minsplit), group = interaction(minsplit, minbucket))) +
+#  geom_line() +
+#  geom_point() +
+#  labs(
+#    title = "Impacto de maxdepth en AUC-ROC para diferentes combinaciones de minsplit y minbucket",
+#    x = "maxdepth",
+#    y = "AUC-ROC",
+#    color = "minsplit"
+#  ) +
+#  theme_minimal()
+```
+
+
+# Ejercicio 6
+Con los parámetros encontrados en el punto anterior, se genera el árbol de decisión obtimizado y su visualización, además de comparar su rendimiento con el obtenido en el punto 3.
+```{r}
 tree <-  rpart(formula=DRK_YN ~ sex + age + height + weight + waistline + sight_left + sight_right + hear_left + hear_right + SBP + DBP + BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride + hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT + gamma_GTP + SMK_stat_type_cd,
-          data = train, method = "class",
+          data = train, 
+          method = "class",
           control = rpart.control(
             cp = 0,          
             xval = 0,        
-            maxdepth = best_result$maxdepth,
-            minsplit = best_result$minsplit,
-            minbucket= best_result$minbucket
+            maxdepth = mejor_resultado$maxdepth,
+            minsplit = mejor_resultado$minsplit,
+            minbucket= mejor_resultado$minbucket
           )
       )
 rpart.plot(tree)
-
-
 ```
-
-```{r matriz2}
+Como es notorio, este árbol resulta mucho más complejo y de análisis de variables mucho más exhaustivo que el anterior. Para mejor comparación en cuanto a sus diferencias en rendimiento y capacidad predictiva, tomamos el valor de auc-roc del nuevo modelo respecto al conjunto de test, y comparamos dicho valor al obtenido con el modelo anterior que era de `r auc_roc`.
+```{r auc}
 obs = test$DRK_YN #valor verdadero
-pred = predict(tree,test,type="class")
-matriz2 <- table(Real=obs, Predicho=pred)
-accuracy2 <- accuracy(obs,pred)
+pred = predict(tree,test,type="prob")[, "1"]
+auc_roc_optimizacion <- auc(obs,pred)
+```
+Se puede analizar cómo es mejorado el valor de auc-roc en este modelo optimizado, con el cual casi llega a 0.8, lo cual es indicativo de una mejora predictiva de alrededor de 8 puntos respecto al modelo anterior. 
+
+A continuación, para continuar viendo diferencias respecto al árbol planteado en el ejercicio 3, se analizan las variables principales de este nuevo modelo:
+```{r variables}
+variable_importance <- tree$variable.importance
+barplot(sort(variable_importance, decreasing = TRUE), 
+        main = "Importancia de las Variables Predictoras",
+        xlab = "Variables",
+        ylab = "Importancia",
+        las = 2,          # Rotar las etiquetas en el eje x
+        col = "pink")
+
 ```
 
+Las variables más importantes continúan siendo las mismas, pero ahora sí se ven más representadas en el árbol obtenido, lo cual resulta visible a partir de las diferencias entre los plots.
 
+# Ejercicio 7
 
 
