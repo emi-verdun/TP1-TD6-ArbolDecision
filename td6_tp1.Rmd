@@ -1,7 +1,7 @@
 ---
 title: "Tecnología Digital VI: Trabajo Práctico 1"
-author: "Emiliana Verdún, Mariana Zunino"
-date: "2024-08-15"
+author: "Emiliana Verdun, Mariana Zunino"
+date: "2024-09-01"
 output: pdf_document
 ---
 
@@ -317,19 +317,69 @@ asignar_na <- function(col, porcentaje){
   
   return(col)
 }
+``` 
 
+```{r conjuntos}
+#
 # 20% NAs en data
 data_20pc_na <- data
 data_20pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_20pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 20)
 
+#Creo los conjuntos de train, validacion y test con 20% NAs
+nobs <- nrow(data_20pc_na)
+itrain <- sample(nobs, 0.7*nobs)
+train_20 <- data_20pc_na[itrain, ]
+resto <- data_20pc_na[-itrain,]
+nobs2 <- nrow(resto) 
+ival <- sample(nobs2, 0.5*nobs2)
+val_20 <- resto[ival,]
+test_20 <- resto[-ival,]
+
+#
 # 50% NAs en data
 data_50pc_na <- data
 data_50pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_50pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 50)
 
+#Creo los conjuntos de train, validacion y test con 50% NAs
+nobs <- nrow(data_50pc_na)
+itrain <- sample(nobs, 0.7*nobs)
+train_50 <- data_50pc_na[itrain, ]
+resto <- data_50pc_na[-itrain,]
+nobs2 <- nrow(resto) 
+ival <- sample(nobs2, 0.5*nobs2)
+val_50 <- resto[ival,]
+test_50 <- resto[-ival,]
+
+#
 # 70% NAs en data
 data_70pc_na <- data
 data_70pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_70pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 70)
 
+#Creo los conjuntos de train, validacion y test con 70% NAs
+nobs <- nrow(data_70pc_na)
+itrain <- sample(nobs, 0.7*nobs)
+train_70 <- data_70pc_na[itrain, ]
+resto <- data_70pc_na[-itrain,]
+nobs2 <- nrow(resto) 
+ival <- sample(nobs2, 0.5*nobs2)
+val_70 <- resto[ival,]
+test_70 <- resto[-ival,]
 ```
+
+
+```{r tree 20%}
+tree <- rpart(formula=DRK_YN ~., data = train_20, method="class")
+```
+
+
+```{r tree 50%}
+tree <- rpart(formula=DRK_YN ~., data = train_50, method="class")
+```
+
+
+```{r tree 70%}
+tree <- rpart(formula=DRK_YN ~., data = train_70, method="class")
+```
+
 
 
