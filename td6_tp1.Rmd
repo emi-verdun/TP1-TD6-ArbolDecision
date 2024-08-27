@@ -304,5 +304,32 @@ barplot(sort(variable_importance, decreasing = TRUE),
 Las variables más importantes continúan siendo las mismas, pero ahora sí se ven más representadas en el árbol obtenido, lo cual resulta visible a partir de las diferencias entre los plots.
 
 # Ejercicio 7
+Para poder asignar valores NA a cierta porción de las variables predictoras del dataset se crea la función asignar_na, con la cual pasandole por parámtro el porcentaje deseado, se puede modificar los valores del dataframe en todas las columnas exceptuando la de target a predecir.
+```{r NAs}
+
+asignar_na <- function(col, porcentaje){
+  n <- length(col)
+  cant_na <- ceiling(porcentaje/100*n)
+  #indices donde seran reemplazados al azar los valores por NAs
+  indices_na <- sample(seq_len(n), cant_na) 
+  #asignacion de valor faltante
+  col[indices_na] <- NA
+  
+  return(col)
+}
+
+# 20% NAs en data
+data_20pc_na <- data
+data_20pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_20pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 20)
+
+# 50% NAs en data
+data_50pc_na <- data
+data_50pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_50pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 50)
+
+# 70% NAs en data
+data_70pc_na <- data
+data_70pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_70pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 70)
+
+```
 
 
