@@ -13,9 +13,11 @@ library(rpart.plot)
 library(Metrics)
 ```
 
-## Introducción
+# Introducción
+# Ejercicio 1
 
-Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones, que tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es.
+Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones. Tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es. El recorte tomado esta relativamenete balanceado, tiene aproximadamente mitad de observaciones de personas alcoholicas y mitad no alcoholicas.
+
 Dicho conjunto de datos fue obtenido en Kaggle y se encuentra disponible en el siguiente link: https://www.kaggle.com/datasets/sooyoungher/smoking-drinking-dataset
 
 
@@ -30,7 +32,6 @@ La elección del dataset se debe a que resulta de caracter interesante y cientí
 Se cargan los datos a utilizar.
 
 ```{r}
-#setwd('c:/Users/Mariana/OneDrive/Documentos/TDVI/TPs')
 data <- read.csv("drinking_dataset.csv")
 ```
 
@@ -49,6 +50,7 @@ data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
 
 ## Visualizaciones
 
+Queremos ver si el sexo es un factor importante a la hora de predecir si una persona es alcoholica. Calculamos las cantidades de alcoholicos por sexo, como no hay la misma cantidad de hombres y mujeres en el dataset, calculamos la proporción de alcoholicos para poder compararlas.
 ```{r plots}
 cant_f <- sum(data$sex == "Female")
 cant_m <- sum(data$sex == "Male")
@@ -56,30 +58,36 @@ cant_alcoholico_f <- sum(data$sex == "Female" & data$DRK_YN == 1)
 cant_alcoholico_m <- sum(data$sex == "Male" & data$DRK_YN == 1)
 cant_NO_alcoholico_f <- sum(data$sex == "Female" & data$DRK_YN == 0)
 cant_NO_alcoholico_m <- sum(data$sex == "Male" & data$DRK_YN == 0)
+```
 
-#cant_f
-#cant_alcoholico_f
-#cant_NO_alcoholico_f
-#cant_m
-#cant_alcoholico_m
-#cant_NO_alcoholico_m
-
+Proporción de alcoholicos y no alcoholicos sin distinción de sexo
+```{r}
 prop_alcoholicos <- ((cant_alcoholico_f + cant_alcoholico_m)/(cant_f + cant_m))
 prop_NO_alcoholicos <- ((cant_NO_alcoholico_f + cant_NO_alcoholico_m)/(cant_f + cant_m))
 
+prop_alcoholicos
+prop_NO_alcoholicos
+```
+Vemos que sin distinguir por sexo la proporción de alcoholicos es casi las misma que la de no alcoholicos, nuestro data set estaba balanceado.
+
+Proporción de alcoholicos y no alcoholicos de sexo femenino
+```{r}
 prop_alcoholicos_f <- cant_alcoholico_f/cant_f
 prop_NO_alcoholicos_f <- cant_NO_alcoholico_f/cant_f
 
+prop_alcoholicos_f
+prop_NO_alcoholicos_f
+```
+
+Proporción de alcoholicos y no alcoholicos de sexo masculino
+```{r}
 prop_alcoholicos_m <- cant_alcoholico_m/cant_m
 prop_NO_alcoholicos_m <- cant_NO_alcoholico_m/cant_m
 
-prop_alcoholicos
-prop_NO_alcoholicos
-prop_alcoholicos_f
-prop_NO_alcoholicos_f
 prop_alcoholicos_m
 prop_NO_alcoholicos_m
 ```
+Pero vemos que separando por sexo la proporción de alcoholicos con sexo femenino es la mitad que la proporción de alcoholicos de sexo masculino.
 
 ```{r}
 prop_alc <- c(prop_alcoholicos_f, prop_alcoholicos_m)
@@ -88,11 +96,12 @@ val_max <- max(prop_alc)
 
 
 # Crear el gráfico de barras
-barplot(prop_alc, names.arg = sex, col = "lightblue",
+colores <- c("cadetblue", "orange")
+barplot(prop_alc, names.arg = sex, col = colores,
         main = "Proporción de Alcoholicos por Sexo", xlab = "Sexo",
         ylim = c(0, val_max + 0.2))
 ```
-
+Hay una diferencia entre las proporciones de alcoholicos según su sexo. La proporción de alcoholicos de sexo masculino es más grande. Esto nos dice que la variable 'sex' puede tener gran importancia en la predicción de si alguien es alcoholico.
 
 ``` {r}
 edades_alc <- data$age[data$DRK_YN == 1]
@@ -144,12 +153,16 @@ A fin de cuentas, el modelo clasifica al 57% de los casos como no alcohólicos m
 ## Importancia de los atributos e identificación de variables principales
 ```{r}
 variable_importance <- tree$variable.importance
+
+par(mar = c(11, 7, 4, 2) + 0.1, mgp = c(4, 1, 0))
 barplot(sort(variable_importance, decreasing = TRUE), 
         main = "Importancia de las Variables Predictoras",
-        xlab = "Variables",
         ylab = "Importancia",
         las = 2,          # Rotar las etiquetas en el eje x
-        col = "lightblue")
+        col = "lightblue",
+        ylim = c(0, max(variable_importance) + 200))
+
+mtext("Variables", side = 1, line = 9, cex = 1.2)
 ```
 En este gráfico se puede visualizar cuáles variables son las más coincidentes o que mayor ayudan a clasificar a la muestra, siendo el sexo el más importante, aunque gamma_GTP y edad, que son las otras 2 variables visibles en el árbol formado no parecen tener tanta importancia y esto resulta un poco chocante.
 
@@ -300,12 +313,16 @@ Se puede analizar cómo es mejorado el valor de auc-roc en este modelo optimizad
 A continuación, para continuar viendo diferencias respecto al árbol planteado en el ejercicio 3, se analizan las variables principales de este nuevo modelo:
 ```{r variables}
 variable_importance <- tree_optimizado$variable.importance
+
+par(mar = c(11, 7, 4, 2) + 0.1, mgp = c(4, 1, 0))
 barplot(sort(variable_importance, decreasing = TRUE), 
         main = "Importancia de las Variables Predictoras",
-        xlab = "Variables",
         ylab = "Importancia",
         las = 2,          # Rotar las etiquetas en el eje x
-        col = "pink")
+        col = "lightblue",
+        ylim = c(0, max(variable_importance) + 200))
+
+mtext("Variables", side = 1, line = 9, cex = 1.2)
 
 ```
 
