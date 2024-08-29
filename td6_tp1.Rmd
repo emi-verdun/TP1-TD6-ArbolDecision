@@ -238,8 +238,8 @@ optimizacion_arbol <- function(train, val, test, valores_depth, valores_bucket, 
 
 
 valores_depth = c(5,6,7,8,9,10,15,20)
-valores_split = c(5,10,20,30)
-valores_bucket = c(10,15,20, 30, 40, 50)
+valores_split = c(1000,5000,10000)
+valores_bucket = c(100, 1000,10000)
 
 mejor_resultado <- optimizacion_arbol(train, val, test, valores_depth, valores_bucket, valores_split)
 ```
@@ -408,7 +408,7 @@ tree_75pc_na <-  rpart(formula=DRK_YN ~ ., data = train_75, method = "class",
       )
 rpart.plot(tree_75pc_na)
 ```
-
+Uno de los puntos que resulta interesante comparar a partir de la visualización de los diferentes árboles es la organización y cuán concisos son. En un principio pareció chocante que a medida que aumentan los valores faltantes, los árboles van acrecentando y haciendose más extensos. Una explicación encontrada al respecto es que es posible que a mayor cantidad de datos faltantes, más díficil resulta encontrar correlaciones entre las variables predictoras y la variable objetivo, por lo tanto es necesario a la hora de predecir tomar más decisiones y explorar más escenarios.
 
 ```{r comparacion_aucroc}
 obs = test_20$DRK_YN
@@ -424,4 +424,20 @@ pred = predict(tree_75pc_na,test,type="prob")[, "1"]
 auc_roc_75 <- auc(obs,pred)
 ```
 
-El auc-roc va disminuyendo a medida que aumentan los NAs presentes en los datasets. Se deteriora la capacidad predictiva del modelo.
+El auc-roc va disminuyendo a medida que aumentan los NAs presentes en los datasets. Se deteriora la capacidad predictiva del modelo. Como se puede visualizar en el siguiente gráfico, a medida que aumenta la cantidad faltante de datos, el valor de AUC-ROC va disminuyendo.
+
+```{r grafico_auc}
+porcentajes <- c(0,20,50,75)
+valores_auc_roc <- c(auc_roc_optimizacion, auc_roc_20, auc_roc_50, auc_roc_75)
+plot(porcentajes, valores_auc_roc, 
+     type = "b",                          
+     pch = 19,                            
+     col = "steelblue",                        
+     xlab = "Porcentaje de NAs en  dataset",           
+     ylab = "AUC-ROC",                    
+     main = "Evolución de AUC-ROC a partir de valores faltantes")     
+
+```
+
+
+## Conclusiones
