@@ -313,6 +313,7 @@ Las variables más importantes continúan siendo las mismas, pero ahora sí se v
 
 # Ejercicio 7
 Para poder asignar valores NA a cierta porción de las variables predictoras del dataset se crea la función asignar_na, con la cual pasandole por parámtro el porcentaje deseado, se puede modificar los valores del dataframe en todas las columnas exceptuando la de target a predecir.
+
 ```{r NAs}
 asignar_na <- function(col, porcentaje){
   n <- length(col)
