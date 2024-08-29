@@ -6,10 +6,8 @@ output: pdf_document
 ---
 
 ```{r libr, echo=FALSE}
-#install.packages("rpart")
 library(rpart)
 library(rpart.plot)
-#install.packages("Metrics")
 library(Metrics)
 library(ggplot2)
 ```
@@ -251,44 +249,71 @@ optimizacion_arbol <- function(train, val, test, valores_depth, valores_bucket, 
       }
     }
           
-    valores_optimizacion <- resultados[which.max(resultados$auc), ]
-    return(valores_optimizacion)
+    #valores_optimizacion <- resultados[which.max(resultados$auc), ]
+    return(resultados)
+    #return(valores_optimizacion)
 }
 
 
-valores_depth = c(5,6,7,8,9,10,15,20)
-valores_split = c(1000,5000,10000)
-valores_bucket = c(100, 1000,10000)
+valores_depth = c(2,5,6,7,8,9,10,15,20)
+valores_split = c(5,10,50,100,500,1000,5000,10000)
+valores_bucket = c(5,10,20,50,100,500,1000,5000,10000)
 
-mejor_resultado <- optimizacion_arbol(train, val, test, valores_depth, valores_bucket, valores_split)
+resultados <- optimizacion_arbol(train, val, test, valores_depth, valores_bucket, valores_split)
+
+mejor_resultado <- resultados[which.max(resultados$auc),]
+
 ```
 
+```{r}
+# Definir la función que encuentra el AUC máximo para cada valor de hiperparámetro
+max_auc_segun_parametro <- function(resultados, parametro) {
+  max_auc <- numeric()
+  valores_unicos_parametro <- unique(resultados[[parametro]])
+  
+  for (v in valores_unicos_parametro) {
+    subset_resultados <- resultados[resultados[[parametro]] == v, ]
+    max_auc_val <- max(subset_resultados$auc)
+    max_auc <- c(max_auc, max_auc_val)
+  }
+  resultado <- data.frame(parametro = valores_unicos_parametro, max_auc = max_auc)
+  return(resultado)
+}
 
-```{r visualizaciones}
-#install.packages("ggplot2")
-#library(ggplot2)
+# Conseguimos los maximos valores de auc en validacion segun cada valor de cada hiperparametro
+max_auc_maxdepth <- max_auc_segun_parametro(resultados, "maxdepth")
+max_auc_minsplit <- max_auc_segun_parametro(resultados, "minsplit")
+max_auc_minbucket<- max_auc_segun_parametro(resultados, "minbucket")
+```
 
-#ggplot(resultados, aes(x = maxdepth, y = auc, color = factor(minsplit), group = interaction(minsplit, minbucket))) +
-#  geom_line() +
-#  geom_point() +
-#  labs(
-#    title = "Impacto de maxdepth en AUC-ROC para diferentes combinaciones de minsplit y minbucket",
-#    x = "maxdepth",
-#    y = "AUC-ROC",
-#    color = "minsplit"
-#  ) +
-#  theme_minimal()
+Una vez obtenidos los mayores auc values para cada hiperparámetro, se procede a generar gráficos para la visualización de la evolución de los valores de auc según la elección de parámetros.
 
-#ggplot(resultados, aes(x = maxdepth, y = auc, color = factor(minsplit), group = interaction(minsplit, minbucket))) +
-#  geom_line() +
-#  geom_point() +
-#  labs(
-#    title = "Impacto de maxdepth en AUC-ROC para diferentes combinaciones de minsplit y minbucket",
-#    x = "maxdepth",
-#    y = "AUC-ROC",
-#    color = "minsplit"
-#  ) +
-#  theme_minimal()
+```{r minsplit}
+plot(max_auc_minsplit$parametro, max_auc_minsplit$max_auc, 
+     type = "b",                          
+     pch = 19,                            
+     col = "blue",                        
+     xlab = "Minsplit",                   
+     ylab = "Max AUC",                    
+     main = "Max AUC según Minsplit")     
+```
+```{r minbucket}
+plot(max_auc_minbucket$parametro, max_auc_minbucket$max_auc, 
+     type = "b",                          
+     pch = 19,                            
+     col = "blue",                        
+     xlab = "Minbucket",                   
+     ylab = "Max AUC",                    
+     main = "Max AUC según Minbucket")     
+```
+```{r maxdepth}
+plot(max_auc_maxdepth$parametro, max_auc_maxdepth$max_auc, 
+     type = "b",                          
+     pch = 19,                            
+     col = "blue",                        
+     xlab = "Maxdepth",                   
+     ylab = "Max AUC",                    
+     main = "Max AUC según maxdepth")     
 ```
 
 
