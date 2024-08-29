@@ -200,40 +200,48 @@ Se establecen cp y xval en 0 y se exploran diferentes combinaciones de maxdepth,
 Se almacena el mejor resultado (aquellos valores con los cuales se obtenga el modelo con el cual se maximiza AUC-ROC con las predicciones sobre el conjunto de validación) y se entrena el modelo con esos valores como hiperparámetros.
 
 ```{r}
-cp = 0
-xval = 0
+optimizacion_arbol <- function(train, val, test, valores_depth, valores_bucket, valores_split){
+    #Se crea dataframe para almacenar resultados de combinaciones y poder visualizar
+    resultados <- data.frame(maxdepth = integer(), minsplit = integer(), minbucket =                   integer(), auc = numeric())
+    
+    #Valores de cp y xval fijos en 0
+    cp = 0
+    xval = 0
+    
+    #Grid search
+    for (d in valores_depth){
+      for (b in valores_bucket){
+        for (s in valores_split){
+          tree <- rpart(formula=DRK_YN ~ sex + age + height + weight + waistline +                     sight_left + sight_right + hear_left + hear_right + SBP + DBP +                      BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride +                            hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT                   + gamma_GTP + SMK_stat_type_cd,
+              data = train, method = "class",
+              control = rpart.control(
+              cp = 0,          
+              xval = 0,        
+              maxdepth = d,
+              minsplit = s,
+              minbucket= b
+            )
+          )
+          predicted_probs <- predict(tree, val, type = "prob")[, "1"]
+          observed_classes <- val$DRK_YN
+          auc_valor <- auc(observed_classes, predicted_probs)
+        
+          resultados <- rbind(resultados, data.frame(maxdepth = d, minsplit = s,                                      minbucket = b, auc = auc_valor))
+      
+        }
+      }
+    }
+          
+    valores_optimizacion <- resultados[which.max(resultados$auc), ]
+    return(valores_optimizacion)
+}
+
+
 valores_depth = c(5,6,7,8,9,10,15,20)
 valores_split = c(5,10,20,30)
 valores_bucket = c(10,15,20, 30, 40, 50)
 
-#Se crea dataframe para almacenar resultados de combinaciones y poder visualizar
-resultados <- data.frame(maxdepth = integer(), minsplit = integer(), minbucket = integer(), auc = numeric())
-
-for (d in valores_depth){
-  for (b in valores_bucket){
-    for (s in valores_split){
-      tree <- rpart(formula=DRK_YN ~ sex + age + height + weight + waistline + sight_left + sight_right + hear_left + hear_right + SBP + DBP + BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride + hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT + gamma_GTP + SMK_stat_type_cd,
-          data = train, method = "class",
-          control = rpart.control(
-          cp = 0,          
-          xval = 0,        
-          maxdepth = d,
-          minsplit = s,
-          minbucket= b
-        )
-      )
-      predicted_probs <- predict(tree, val, type = "prob")[, "1"]
-      observed_classes <- val$DRK_YN
-      auc_valor <- auc(observed_classes, predicted_probs)
-    
-      resultados <- rbind(resultados, data.frame(maxdepth = d, minsplit = s,                                      minbucket = b, auc = auc_valor))
-  
-    }
-  }
-}
-      
-mejor_resultado <- resultados[which.max(resultados$auc), ]
-mejor_resultado
+mejor_resultado <- optimizacion_arbol(train, val, test, valores_depth, valores_bucket, valores_split)
 ```
 
 
@@ -268,7 +276,7 @@ mejor_resultado
 # Ejercicio 6
 Con los parámetros encontrados en el punto anterior, se genera el árbol de decisión obtimizado y su visualización, además de comparar su rendimiento con el obtenido en el punto 3.
 ```{r}
-tree <-  rpart(formula=DRK_YN ~ sex + age + height + weight + waistline + sight_left + sight_right + hear_left + hear_right + SBP + DBP + BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride + hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT + gamma_GTP + SMK_stat_type_cd,
+tree_optimizado <-  rpart(formula=DRK_YN ~ .,
           data = train, 
           method = "class",
           control = rpart.control(
@@ -279,19 +287,19 @@ tree <-  rpart(formula=DRK_YN ~ sex + age + height + weight + waistline + sight_
             minbucket= mejor_resultado$minbucket
           )
       )
-rpart.plot(tree)
+rpart.plot(tree_optimizado)
 ```
 Como es notorio, este árbol resulta mucho más complejo y de análisis de variables mucho más exhaustivo que el anterior. Para mejor comparación en cuanto a sus diferencias en rendimiento y capacidad predictiva, tomamos el valor de auc-roc del nuevo modelo respecto al conjunto de test, y comparamos dicho valor al obtenido con el modelo anterior que era de `r auc_roc`.
 ```{r auc}
 obs = test$DRK_YN #valor verdadero
-pred = predict(tree,test,type="prob")[, "1"]
+pred = predict(tree_optimizado,test,type="prob")[, "1"]
 auc_roc_optimizacion <- auc(obs,pred)
 ```
 Se puede analizar cómo es mejorado el valor de auc-roc en este modelo optimizado, con el cual casi llega a 0.8, lo cual es indicativo de una mejora predictiva de alrededor de 8 puntos respecto al modelo anterior. 
 
 A continuación, para continuar viendo diferencias respecto al árbol planteado en el ejercicio 3, se analizan las variables principales de este nuevo modelo:
 ```{r variables}
-variable_importance <- tree$variable.importance
+variable_importance <- tree_optimizado$variable.importance
 barplot(sort(variable_importance, decreasing = TRUE), 
         main = "Importancia de las Variables Predictoras",
         xlab = "Variables",
@@ -306,7 +314,6 @@ Las variables más importantes continúan siendo las mismas, pero ahora sí se v
 # Ejercicio 7
 Para poder asignar valores NA a cierta porción de las variables predictoras del dataset se crea la función asignar_na, con la cual pasandole por parámtro el porcentaje deseado, se puede modificar los valores del dataframe en todas las columnas exceptuando la de target a predecir.
 ```{r NAs}
-
 asignar_na <- function(col, porcentaje){
   n <- length(col)
   cant_na <- ceiling(porcentaje/100*n)
@@ -320,18 +327,16 @@ asignar_na <- function(col, porcentaje){
 ``` 
 
 ```{r conjuntos}
+#Índices para la división de los datasets (itrain, ival) iguales a los ya obtenidos en el punto 3, con tal de asegurar que los datos en train, validacion y test son los mismos en cada versión
+
 #
 # 20% NAs en data
 data_20pc_na <- data
 data_20pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_20pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 20)
 
 #Creo los conjuntos de train, validacion y test con 20% NAs
-nobs <- nrow(data_20pc_na)
-itrain <- sample(nobs, 0.7*nobs)
 train_20 <- data_20pc_na[itrain, ]
 resto <- data_20pc_na[-itrain,]
-nobs2 <- nrow(resto) 
-ival <- sample(nobs2, 0.5*nobs2)
 val_20 <- resto[ival,]
 test_20 <- resto[-ival,]
 
@@ -341,45 +346,81 @@ data_50pc_na <- data
 data_50pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_50pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 50)
 
 #Creo los conjuntos de train, validacion y test con 50% NAs
-nobs <- nrow(data_50pc_na)
-itrain <- sample(nobs, 0.7*nobs)
 train_50 <- data_50pc_na[itrain, ]
 resto <- data_50pc_na[-itrain,]
-nobs2 <- nrow(resto) 
-ival <- sample(nobs2, 0.5*nobs2)
 val_50 <- resto[ival,]
 test_50 <- resto[-ival,]
 
 #
-# 70% NAs en data
-data_70pc_na <- data
-data_70pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_70pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 70)
+# 75% NAs en data
+data_75pc_na <- data
+data_75pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_75pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 75)
 
-#Creo los conjuntos de train, validacion y test con 70% NAs
-nobs <- nrow(data_70pc_na)
-itrain <- sample(nobs, 0.7*nobs)
-train_70 <- data_70pc_na[itrain, ]
-resto <- data_70pc_na[-itrain,]
-nobs2 <- nrow(resto) 
-ival <- sample(nobs2, 0.5*nobs2)
-val_70 <- resto[ival,]
-test_70 <- resto[-ival,]
+#Creo los conjuntos de train, validacion y test con 75% NAs
+train_75 <- data_75pc_na[itrain, ]
+resto <- data_75pc_na[-itrain,]
+val_75 <- resto[ival,]
+test_75 <- resto[-ival,]
 ```
 
 
 ```{r tree 20%}
-tree <- rpart(formula=DRK_YN ~., data = train_20, method="class")
+hiperparametros_20na <- optimizacion_arbol(train_20, val_20, test_20, valores_depth, valores_bucket, valores_split)
+tree_20pc_na <-  rpart(formula=DRK_YN ~ ., data = train_20, method = "class",
+          control = rpart.control(
+            cp = 0,          
+            xval = 0,        
+            maxdepth = hiperparametros_20na$maxdepth,
+            minsplit = hiperparametros_20na$minsplit,
+            minbucket= hiperparametros_20na$minbucket
+          )
+      )
+rpart.plot(tree_20pc_na)
 ```
 
 
 ```{r tree 50%}
-tree <- rpart(formula=DRK_YN ~., data = train_50, method="class")
+hiperparametros_50na <- optimizacion_arbol(train_50, val_50, test_50, valores_depth, valores_bucket, valores_split)
+tree_50pc_na <-  rpart(formula=DRK_YN ~ ., data = train_50, method = "class",
+          control = rpart.control(
+            cp = 0,          
+            xval = 0,        
+            maxdepth = hiperparametros_50na$maxdepth,
+            minsplit = hiperparametros_50na$minsplit,
+            minbucket= hiperparametros_50na$minbucket
+          )
+      )
+rpart.plot(tree_50pc_na)
 ```
 
 
-```{r tree 70%}
-tree <- rpart(formula=DRK_YN ~., data = train_70, method="class")
+```{r tree 75%}
+hiperparametros_75na <- optimizacion_arbol(train_75, val_75, test_75, valores_depth, valores_bucket, valores_split)
+tree_75pc_na <-  rpart(formula=DRK_YN ~ ., data = train_75, method = "class",
+          control = rpart.control(
+            cp = 0,          
+            xval = 0,        
+            maxdepth = hiperparametros_75na$maxdepth,
+            minsplit = hiperparametros_75na$minsplit,
+            minbucket= hiperparametros_75na$minbucket
+          )
+      )
+rpart.plot(tree_75pc_na)
 ```
 
 
+```{r comparacion_aucroc}
+obs = test_20$DRK_YN
+pred = predict(tree_20pc_na,test,type="prob")[, "1"]
+auc_roc_20 <- auc(obs,pred)
 
+obs = test_50$DRK_YN
+pred = predict(tree_50pc_na,test,type="prob")[, "1"]
+auc_roc_50 <- auc(obs,pred)
+
+obs = test_75$DRK_YN
+pred = predict(tree_75pc_na,test,type="prob")[, "1"]
+auc_roc_75 <- auc(obs,pred)
+```
+
+El auc-roc va disminuyendo a medida que aumentan los NAs presentes en los datasets. Se deteriora la capacidad predictiva del modelo.
