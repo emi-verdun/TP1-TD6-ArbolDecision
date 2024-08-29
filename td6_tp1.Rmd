@@ -11,6 +11,7 @@ library(rpart)
 library(rpart.plot)
 #install.packages("Metrics")
 library(Metrics)
+library(ggplot2)
 ```
 
 # Introducción
@@ -96,19 +97,24 @@ val_max <- max(prop_alc)
 
 
 # Crear el gráfico de barras
-colores <- c("cadetblue", "orange")
+colores <- c("#fb8500", "#fd9e02")
 barplot(prop_alc, names.arg = sex, col = colores,
         main = "Proporción de Alcoholicos por Sexo", xlab = "Sexo",
         ylim = c(0, val_max + 0.2))
 ```
 Hay una diferencia entre las proporciones de alcoholicos según su sexo. La proporción de alcoholicos de sexo masculino es más grande. Esto nos dice que la variable 'sex' puede tener gran importancia en la predicción de si alguien es alcoholico.
 
-``` {r}
-edades_alc <- data$age[data$DRK_YN == 1]
-hist(edades_alc, main="Histograma de Edades (Solo Alcohólicos)", 
-     xlab="Edades", ylab="Frecuencia", col="lightblue", border="black")
-```
+Ahora queremos ver cual es la distribución de edad en nuestra muestra de alcoholicos y no alcoholicos
 
+```{r}
+boxplot(age ~ DRK_YN, data=data, 
+        main="Comparación de edades entre alcoholicos y no alcoholicos",
+        ylab = "Edad",
+        col = colores,
+        names = c("No Alcoholicos", "Alcoholicos"),
+        ylim = c(10, 90))
+```
+Se puede ver que hay cierta diferencia, considerando que hay casi la misma cantidad de alcoholicos y no alcoholicos en el dataset, se puede ver 
 
 
 # Ejercicio 3
