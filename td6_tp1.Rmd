@@ -318,7 +318,7 @@ plot(max_auc_maxdepth$parametro, max_auc_maxdepth$max_auc,
 
 
 ## Ejercicio 6
-Con los parámetros encontrados en el punto anterior, se genera el árbol de decisión obtimizado y su visualización, además de comparar su rendimiento con el obtenido en el punto 3.
+Con los parámetros encontrados en el punto anterior, se genera el árbol de decisión optimizado y su visualización, además de comparar su rendimiento con el obtenido en el punto 3.
 ```{r}
 tree_optimizado <-  rpart(formula=DRK_YN ~ .,
           data = train, 
