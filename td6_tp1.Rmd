@@ -13,7 +13,7 @@ library(ggplot2)
 ```
 
 # Introducción
-# Ejercicio 1
+## Ejercicio 1
 
 Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones. Tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es. El recorte tomado esta relativamenete balanceado, tiene aproximadamente mitad de observaciones de personas alcoholicas y mitad no alcoholicas.
 
@@ -27,7 +27,7 @@ La elección del dataset se debe a que resulta de caracter interesante y cientí
 
 
 
-# Ejercicio 2
+## Ejercicio 2
 Se cargan los datos a utilizar.
 
 ```{r}
@@ -47,7 +47,7 @@ data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
 ```
 
 
-## Visualizaciones
+### Visualizaciones
 
 Queremos ver si el sexo es un factor importante a la hora de predecir si una persona es alcoholica. Calculamos las cantidades de alcoholicos por sexo, como no hay la misma cantidad de hombres y mujeres en el dataset, calculamos la proporción de alcoholicos para poder compararlas.
 ```{r plots}
@@ -115,7 +115,7 @@ boxplot(age ~ DRK_YN, data=data,
 Se puede ver que hay cierta diferencia, considerando que hay casi la misma cantidad de alcoholicos y no alcoholicos en el dataset, se puede ver 
 
 
-# Ejercicio 3
+## Ejercicio 3
 ```{r division, echo=FALSE}
 set.seed(1234)
 nobs <- nrow(data)
@@ -154,7 +154,7 @@ El árbol obtenido con los parámetros default tiene una profundidad de 3, siend
 Luego, se continúan generando más regiones de decisión con los casos de sexo masculino. Se toma como segundo criterio en los hombres si el valor de gamma_GTP es menor a 36: en el caso que no lo sea, clasifica el individuo como alcohólico; si lo es, entra en cuestión la edad del individuo. Si la edad es mayor o igual 53 con un gamma_GTP menor a 36, esa persona no es considerada alcohólica por el modelo; en cambio, si tiene una edad menor a 53, se considera que sí lo es.
 A fin de cuentas, el modelo clasifica al 57% de los casos como no alcohólicos mientras que el otro 43% es considerado alcohólico. Esta clasificación tiene ciertos errores y generalizaciones que afectan a su rendimiento y se buscará mejorar en los próximos ejercicios.
 
-## Importancia de los atributos e identificación de variables principales
+### Importancia de los atributos e identificación de variables principales
 ```{r}
 variable_importance <- tree$variable.importance
 
@@ -170,7 +170,7 @@ mtext("Variables", side = 1, line = 9, cex = 1.2)
 ```
 En este gráfico se puede visualizar cuáles variables son las más coincidentes o que mayor ayudan a clasificar a la muestra, siendo el sexo el más importante, aunque gamma_GTP y edad, que son las otras 2 variables visibles en el árbol formado no parecen tener tanta importancia y esto resulta un poco chocante.
 
-# Ejercicio 4
+## Ejercicio 4
 Con tal de poder analizar el rendimiento del modelo con los hiperparámetros default, se prueban diferentes métricas a partir de predicciones realizadas sobre el conjunto de test tomado del dataset.
 ```{r}
 prediccion_test <- predict(tree, test, type="class")
@@ -211,7 +211,7 @@ Por último, interesa la métrica del AUC-ROC, es decir, el área bajo la curva 
 En general, no parece tan malo para ser el modelo default pero puede ser mucho mejor optimizado adaptando los hiperparámetros.
 
 
-# Ejercicio 5
+## Ejercicio 5
 Para la optimización del modelo, se toman ciertos valores elegidos a mano con tal de realizar una búsqueda de parámetros que optimicen el modelo a partir de grid search.
 Se establecen cp y xval en 0 y se exploran diferentes combinaciones de maxdepth, minsplit y minbucket.
 Se almacena el mejor resultado (aquellos valores con los cuales se obtenga el modelo con el cual se maximiza AUC-ROC con las predicciones sobre el conjunto de validación) y se entrena el modelo con esos valores como hiperparámetros.
@@ -317,7 +317,7 @@ plot(max_auc_maxdepth$parametro, max_auc_maxdepth$max_auc,
 ```
 
 
-# Ejercicio 6
+## Ejercicio 6
 Con los parámetros encontrados en el punto anterior, se genera el árbol de decisión obtimizado y su visualización, además de comparar su rendimiento con el obtenido en el punto 3.
 ```{r}
 tree_optimizado <-  rpart(formula=DRK_YN ~ .,
@@ -359,7 +359,7 @@ mtext("Variables", side = 1, line = 9, cex = 1.2)
 
 Las variables más importantes continúan siendo las mismas, pero ahora sí se ven más representadas en el árbol obtenido, lo cual resulta visible a partir de las diferencias entre los plots.
 
-# Ejercicio 7
+## Ejercicio 7
 Para poder asignar valores NA a cierta porción de las variables predictoras del dataset se crea la función asignar_na, con la cual pasandole por parámtro el porcentaje deseado, se puede modificar los valores del dataframe en todas las columnas exceptuando la de target a predecir.
 
 ```{r NAs}
@@ -488,4 +488,5 @@ plot(porcentajes, valores_auc_roc,
 ```
 
 
-## Conclusiones
+# Conclusiones
+## Ejercicio 8
