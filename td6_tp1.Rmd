@@ -6,16 +6,23 @@ output: pdf_document
 ---
 
 ```{r libr, echo=FALSE}
+install.packages("corrplot")
+install.packages("PerformanceAnalytics")
+install.packages("reshape2")
+
+library(reshape2)
 library(rpart)
 library(rpart.plot)
 library(Metrics)
 library(ggplot2)
+library(corrplot)
+library(PerformanceAnalytics)
 ```
 
 # Introducción
 ## Ejercicio 1
 
-Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones. Tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es. El recorte tomado esta relativamenete balanceado, tiene aproximadamente mitad de observaciones de personas alcoholicas y mitad no alcoholicas.
+Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones. Tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es. El recorte tomado esta relativamente balanceado, tiene aproximadamente mitad de observaciones de personas alcoholicas y mitad no alcoholicas.
 
 Dicho conjunto de datos fue obtenido en Kaggle y se encuentra disponible en el siguiente link: https://www.kaggle.com/datasets/sooyoungher/smoking-drinking-dataset
 
@@ -28,8 +35,8 @@ La elección del dataset se debe a que resulta de caracter interesante y cientí
 
 
 ## Ejercicio 2
-Se cargan los datos a utilizar.
 
+Se cargan los datos a utilizar.
 ```{r}
 data <- read.csv("drinking_dataset.csv")
 ```
@@ -49,7 +56,7 @@ data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
 
 ### Visualizaciones
 
-Queremos ver si el sexo es un factor importante a la hora de predecir si una persona es alcoholica. Calculamos las cantidades de alcoholicos por sexo, como no hay la misma cantidad de hombres y mujeres en el dataset, calculamos la proporción de alcoholicos para poder compararlas.
+Queremos ver si el sexo es un factor importante a la hora de predecir si una persona es alcoholica. Calculamos las cantidades de alcoholicos por sexo, pero como no hay la misma cantidad de hombres y mujeres en el dataset, calculamos la proporción de alcoholicos para poder compararlas.
 ```{r plots}
 cant_f <- sum(data$sex == "Female")
 cant_m <- sum(data$sex == "Male")
@@ -77,7 +84,6 @@ prop_NO_alcoholicos_f <- cant_NO_alcoholico_f/cant_f
 prop_alcoholicos_f
 prop_NO_alcoholicos_f
 ```
-
 Proporción de alcoholicos y no alcoholicos de sexo masculino
 ```{r}
 prop_alcoholicos_m <- cant_alcoholico_m/cant_m
@@ -95,7 +101,7 @@ val_max <- max(prop_alc)
 
 
 # Crear el gráfico de barras
-colores <- c("#fb8500", "#fd9e02")
+colores <- c("#eb5e28", "#fd9e02")
 barplot(prop_alc, names.arg = sex, col = colores,
         main = "Proporción de Alcoholicos por Sexo", xlab = "Sexo",
         ylim = c(0, val_max + 0.2))
@@ -103,16 +109,71 @@ barplot(prop_alc, names.arg = sex, col = colores,
 Hay una diferencia entre las proporciones de alcoholicos según su sexo. La proporción de alcoholicos de sexo masculino es más grande. Esto nos dice que la variable 'sex' puede tener gran importancia en la predicción de si alguien es alcoholico.
 
 Ahora queremos ver cual es la distribución de edad en nuestra muestra de alcoholicos y no alcoholicos
-
 ```{r}
 boxplot(age ~ DRK_YN, data=data, 
         main="Comparación de edades entre alcoholicos y no alcoholicos",
         ylab = "Edad",
-        col = colores,
+        col = c("steelblue", "orange"),
         names = c("No Alcoholicos", "Alcoholicos"),
         ylim = c(10, 90))
 ```
-Se puede ver que hay cierta diferencia, considerando que hay casi la misma cantidad de alcoholicos y no alcoholicos en el dataset, se puede ver 
+Se puede ver que hay cierta diferencia en la edad media de ambos grupos, considerando que hay casi la misma cantidad de alcoholicos y no alcoholicos en el dataset, la edad media en el grupo de no alcoholicos es mayor. Entonces la edad puede llegar a ser una variable a tomar en cuenta a la hora de predecir.
+
+Queremos ver si hay alguna relación entre fumar tabaco y ser alcohólico. Para ello vamos a mirar la proporción de personas alcohólicas en tres grupos: 1-nunca fumó, 2-ya no fuma y 3-fuma.
+```{r}
+nunca_fumo <- sum(data$SMK_stat_type_cd == 1)
+ya_no_fuma <- sum(data$SMK_stat_type_cd == 2)
+fuma <- sum(data$SMK_stat_type_cd == 3)
+
+alc_nunca_fumo <- sum(data$SMK_stat_type_cd == 1 & data$DRK_YN == 1)
+alc_ya_no_fuma <- sum(data$SMK_stat_type_cd == 2 & data$DRK_YN == 1)
+alc_fuma <- sum(data$SMK_stat_type_cd == 3 & data$DRK_YN == 1)
+
+prop_alc_NF <- alc_nunca_fumo/nunca_fumo
+prop_alc_YNF <- alc_ya_no_fuma/ya_no_fuma
+prop_alc_F <- alc_fuma/fuma
+
+prop_alc_NF
+prop_alc_YNF
+prop_alc_F
+```
+Hay diferencia en la proporción de alcoholicos según estos grupos. Hay una proporción menor de alcoholicos en el grupo de los que nunca fumaron.
+
+Visualizamos estos datos
+```{r}
+prop_alc_smoke <- c(prop_alc_NF, prop_alc_YNF, prop_alc_F)
+sex <- c("Nunca fumó", "Ya no fuma", "Fuma")
+val_max <- max(prop_alc_smoke)
+
+# Crear el gráfico de barras
+colores <- c("#22577a", "#38a3a5", "#57cc99")
+barplot(prop_alc_smoke, names.arg = sex, col = colores,
+        main = "Proporción de Alcoholicos por según relación con Fumar",
+        xlab = "Cigarrillo", ylim = c(0, val_max + 0.1))
+```
+Podemos pensar que SMK_stat_type_cd va a ser una variable importante a la hora de predecir si alguien es alcohólico. Ya que si alguien nunca fumo es más probable que no sea alcoholico. Y si alguien fumo alguna vez es más probable que sea alcoholico.
+
+
+```{r}
+predictoras <- data[, -which(names(data) == "DRK_YN")]
+predictoras_numericas <- predictoras[, sapply(predictoras, is.numeric)]
+matriz_correlacion <- cor(predictoras_numericas)
+
+matriz_correlacion_melt <- melt(matriz_correlacion)
+
+# Crear el gráfico de correlación
+ggplot(data = matriz_correlacion_melt, aes(Var1, Var2, fill = value)) + 
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlación") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0, 
+                                   size = 10, hjust = 1)) +
+  coord_fixed()
+
+```
+
 
 
 ## Ejercicio 3
@@ -143,7 +204,6 @@ tree$control
 ```
 Como hiperparámetro por defecto se toma un valor de minsplit = 20, es decir, que en una hoja del árbol deben haber por lo menos 20 observaciones para poder realizar un split y crear nuevas regiones.
 Por otro lado, se establece que como mínimo una hoja debe tener 7 observaciones con el valor default de minbucket y que como máxima profundidad el árbol puede tener 30 niveles.
-Además, aparecen otros parámetros como un cp de 0.01 y xval de 10. --¿Es necesario poner todos y que son?
 
 Con estos hiperparámetros por defecto y con el árbol obtenido, obtenemos la siguiente visualización del árbol de clasificación.
 ```{r grafico_arbol}
@@ -151,7 +211,7 @@ rpart.plot(tree)
 ```
 
 El árbol obtenido con los parámetros default tiene una profundidad de 3, siendo el primer split realizado a partir del sexo de la persona. Como se pudo visualizar en uno de los gráficos del punto 2, las personas de sexo masculino tienen una tendencia mucho mayor al alcoholismo que las de sexo femenino. Se puede ver en este primer split que a todas las muestras de sexo femenino las clasifica como no alcohólicas, de manera un poco brusca teniendo en cuenta que sí hay cierta proporción de mujeres alcoholicas en los datos. 
-Luego, se continúan generando más regiones de decisión con los casos de sexo masculino. Se toma como segundo criterio en los hombres si el valor de gamma_GTP es menor a 36: en el caso que no lo sea, clasifica el individuo como alcohólico; si lo es, entra en cuestión la edad del individuo. Si la edad es mayor o igual 53 con un gamma_GTP menor a 36, esa persona no es considerada alcohólica por el modelo; en cambio, si tiene una edad menor a 53, se considera que sí lo es.
+Luego, se continúan generando más regiones de decisión con los casos de sexo masculino. Se toma como segundo criterio en los hombres si el valor de gamma_GTP es menor a 36: en el caso que no lo sea, clasifica el individuo como alcohólico; si lo es, entra en cuestión la edad del individuo. Si la edad es mayor o igual 53 con un gamma_GTP menor a 36, esa persona no es considerada alcohólica por el modelo; en cambio, si tiene una edad menor a 53, se considera que sí lo es. Tiene sentido que un corte sea en base al gamma_GTP, ya que es la medición de una enzima que se encuentra principalmente en el hígado. Un valor alto de esta puede indicar daño en el hígado y justamente consumo de alcohol.
 A fin de cuentas, el modelo clasifica al 57% de los casos como no alcohólicos mientras que el otro 43% es considerado alcohólico. Esta clasificación tiene ciertos errores y generalizaciones que afectan a su rendimiento y se buscará mejorar en los próximos ejercicios.
 
 ### Importancia de los atributos e identificación de variables principales
@@ -163,12 +223,14 @@ barplot(sort(variable_importance, decreasing = TRUE),
         main = "Importancia de las Variables Predictoras",
         ylab = "Importancia",
         las = 2,          # Rotar las etiquetas en el eje x
-        col = "lightblue",
+        col = "yellowgreen",
         ylim = c(0, max(variable_importance) + 200))
 
 mtext("Variables", side = 1, line = 9, cex = 1.2)
 ```
 En este gráfico se puede visualizar cuáles variables son las más coincidentes o que mayor ayudan a clasificar a la muestra, siendo el sexo el más importante, aunque gamma_GTP y edad, que son las otras 2 variables visibles en el árbol formado no parecen tener tanta importancia y esto resulta un poco chocante.
+
+
 
 ## Ejercicio 4
 Con tal de poder analizar el rendimiento del modelo con los hiperparámetros default, se prueban diferentes métricas a partir de predicciones realizadas sobre el conjunto de test tomado del dataset.
@@ -209,6 +271,7 @@ Con el modelo propuesto en el punto 3, sin tocar los hiperparámetros, se llega 
 Por último, interesa la métrica del AUC-ROC, es decir, el área bajo la curva de ROC (mide la relación entre verdaderos positivos y falsos positivos) que permite indicar la capacidad predictora del modelo. Esta tomó un valor de `r auc_roc`.
 
 En general, no parece tan malo para ser el modelo default pero puede ser mucho mejor optimizado adaptando los hiperparámetros.
+
 
 
 ## Ejercicio 5
@@ -255,9 +318,9 @@ optimizacion_arbol <- function(train, val, test, valores_depth, valores_bucket, 
 }
 
 
-valores_depth = c(2,5,6,7,8,9,10,15,20)
-valores_split = c(5,10,50,100,500,1000,5000,10000)
-valores_bucket = c(5,10,20,50,100,500,1000,5000,10000)
+valores_depth = c(2,5,6,7,8,9,10,15,20,40)
+valores_split = c(2,5,7,10,50,100,500,1000,5000,10000)
+valores_bucket = c(2,5,7,10,20,50,100,500,1000,5000,10000)
 
 resultados <- optimizacion_arbol(train, val, test, valores_depth, valores_bucket, valores_split)
 
@@ -292,28 +355,31 @@ Una vez obtenidos los mayores auc values para cada hiperparámetro, se procede a
 plot(max_auc_minsplit$parametro, max_auc_minsplit$max_auc, 
      type = "b",                          
      pch = 19,                            
-     col = "blue",                        
+     col = "darkblue",                        
      xlab = "Minsplit",                   
-     ylab = "Max AUC",                    
-     main = "Max AUC según Minsplit")     
+     ylab = "AUC",                    
+     main = "Max AUC según Minsplit", 
+     ylim = c(min(max_auc_minsplit)-0.01, 0.8))     
 ```
 ```{r minbucket}
 plot(max_auc_minbucket$parametro, max_auc_minbucket$max_auc, 
      type = "b",                          
      pch = 19,                            
-     col = "blue",                        
+     col = "darkblue",                        
      xlab = "Minbucket",                   
-     ylab = "Max AUC",                    
-     main = "Max AUC según Minbucket")     
+     ylab = "AUC",                    
+     main = "Max AUC según Minbucket",
+     ylim = c(min(max_auc_minbucket)-0.001, 0.79))     
 ```
 ```{r maxdepth}
 plot(max_auc_maxdepth$parametro, max_auc_maxdepth$max_auc, 
      type = "b",                          
      pch = 19,                            
-     col = "blue",                        
+     col = "darkblue",                        
      xlab = "Maxdepth",                   
-     ylab = "Max AUC",                    
-     main = "Max AUC según maxdepth")     
+     ylab = "AUC",                    
+     main = "Max AUC según maxdepth",
+     ylim = c(min(max_auc_maxdepth)-0.001, 0.79))     
 ```
 
 
@@ -350,14 +416,14 @@ barplot(sort(variable_importance, decreasing = TRUE),
         main = "Importancia de las Variables Predictoras",
         ylab = "Importancia",
         las = 2,          # Rotar las etiquetas en el eje x
-        col = "lightblue",
+        col = "yellowgreen",
         ylim = c(0, max(variable_importance) + 200))
 
 mtext("Variables", side = 1, line = 9, cex = 1.2)
 
 ```
 
-Las variables más importantes continúan siendo las mismas, pero ahora sí se ven más representadas en el árbol obtenido, lo cual resulta visible a partir de las diferencias entre los plots.
+Las variables más importantes continúan siendo las mismas, solo con algunos cambios mínimos de orden, pero ahora sí se ven más representadas en el árbol obtenido, lo cual resulta visible a partir de las diferencias entre los plots. También aparecieron variables que en el árbol básico no estaban, pasaron a tener aunque sea un poco de importancia en el modelo.
 
 ## Ejercicio 7
 Para poder asignar valores NA a cierta porción de las variables predictoras del dataset se crea la función asignar_na, con la cual pasandole por parámtro el porcentaje deseado, se puede modificar los valores del dataframe en todas las columnas exceptuando la de target a predecir.
@@ -378,7 +444,6 @@ asignar_na <- function(col, porcentaje){
 ```{r conjuntos}
 #Índices para la división de los datasets (itrain, ival) iguales a los ya obtenidos en el punto 3, con tal de asegurar que los datos en train, validacion y test son los mismos en cada versión
 
-#
 # 20% NAs en data
 data_20pc_na <- data
 data_20pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_20pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 20)
@@ -415,13 +480,15 @@ test_75 <- resto[-ival,]
 
 ```{r tree 20%}
 hiperparametros_20na <- optimizacion_arbol(train_20, val_20, test_20, valores_depth, valores_bucket, valores_split)
+mejor_resultado_20na <- hiperparametros_20na[which.max(hiperparametros_20na$auc),]
+
 tree_20pc_na <-  rpart(formula=DRK_YN ~ ., data = train_20, method = "class",
           control = rpart.control(
             cp = 0,          
             xval = 0,        
-            maxdepth = hiperparametros_20na$maxdepth,
-            minsplit = hiperparametros_20na$minsplit,
-            minbucket= hiperparametros_20na$minbucket
+            maxdepth = mejor_resultado_20na$maxdepth,
+            minsplit = mejor_resultado_20na$minsplit,
+            minbucket= mejor_resultado_20na$minbucket
           )
       )
 rpart.plot(tree_20pc_na)
@@ -430,13 +497,15 @@ rpart.plot(tree_20pc_na)
 
 ```{r tree 50%}
 hiperparametros_50na <- optimizacion_arbol(train_50, val_50, test_50, valores_depth, valores_bucket, valores_split)
+mejor_resultado_50na <- hiperparametros_50na[which.max(hiperparametros_50na$auc),]
+
 tree_50pc_na <-  rpart(formula=DRK_YN ~ ., data = train_50, method = "class",
           control = rpart.control(
             cp = 0,          
             xval = 0,        
-            maxdepth = hiperparametros_50na$maxdepth,
-            minsplit = hiperparametros_50na$minsplit,
-            minbucket= hiperparametros_50na$minbucket
+            maxdepth = mejor_resultado_50na$maxdepth,
+            minsplit = mejor_resultado_50na$minsplit,
+            minbucket= mejor_resultado_50na$minbucket
           )
       )
 rpart.plot(tree_50pc_na)
@@ -445,13 +514,15 @@ rpart.plot(tree_50pc_na)
 
 ```{r tree 75%}
 hiperparametros_75na <- optimizacion_arbol(train_75, val_75, test_75, valores_depth, valores_bucket, valores_split)
+mejor_resultado_75na <- hiperparametros_75na[which.max(hiperparametros_75na$auc),]
+
 tree_75pc_na <-  rpart(formula=DRK_YN ~ ., data = train_75, method = "class",
           control = rpart.control(
             cp = 0,          
             xval = 0,        
-            maxdepth = hiperparametros_75na$maxdepth,
-            minsplit = hiperparametros_75na$minsplit,
-            minbucket= hiperparametros_75na$minbucket
+            maxdepth = mejor_resultado_75na$maxdepth,
+            minsplit = mejor_resultado_75na$minsplit,
+            minbucket= mejor_resultado_75na$minbucket
           )
       )
 rpart.plot(tree_75pc_na)
@@ -470,6 +541,10 @@ auc_roc_50 <- auc(obs,pred)
 obs = test_75$DRK_YN
 pred = predict(tree_75pc_na,test,type="prob")[, "1"]
 auc_roc_75 <- auc(obs,pred)
+
+auc_roc_20
+auc_roc_50
+auc_roc_75
 ```
 
 El auc-roc va disminuyendo a medida que aumentan los NAs presentes en los datasets. Se deteriora la capacidad predictiva del modelo. Como se puede visualizar en el siguiente gráfico, a medida que aumenta la cantidad faltante de datos, el valor de AUC-ROC va disminuyendo.
@@ -480,7 +555,7 @@ valores_auc_roc <- c(auc_roc_optimizacion, auc_roc_20, auc_roc_50, auc_roc_75)
 plot(porcentajes, valores_auc_roc, 
      type = "b",                          
      pch = 19,                            
-     col = "steelblue",                        
+     col = "darkblue",                        
      xlab = "Porcentaje de NAs en  dataset",           
      ylab = "AUC-ROC",                    
      main = "Evolución de AUC-ROC a partir de valores faltantes")     
@@ -490,3 +565,11 @@ plot(porcentajes, valores_auc_roc,
 
 # Conclusiones
 ## Ejercicio 8
+
+En el análisis se vió las variables que más importancia tenían en la predicción, algunas era esperable que lo fueran, a partir de los resultados de la exploración del dataset, el sexo, y otras sorprendió que estuvieran o que no. 
+Se vió la importancia de optimizar nuestro modelo para obtener mejores resultados, modificando los hiperparámetros del árbol. Para nuestro modelo los hiperparámetros que más mejoraban el auc-roc eran valores de minbucket y minsplit chicos y valores de maxdepth entre 5 y 10.
+Además se observó el impacto que tienen los valores faltantes en la calidad de un modelo, tener valores faltantes empeora el rendimiento de nuestro modelo, mientras más valores faltantes más rendimiento pierde nuestro modelo. Aunque se vió los árboles que se entrenaron con datasets que incluían datos faltantes, pero que se optimizó sus hiperparámetros, tuvieron mejor rendimiento que nuestro árbol básico con hiperparámetros por defecto.
+
+Para el problema planteado resultó útil utilizar árboles de decisión ya que nuestro problema era de clasificación binaria y se ve claramente en que variables se basa para hacer las predicciones, lo cuál ayuda también al análisis. El poder ver el árbol gráficamente es de gran ayuda para interpretar lo que esta sucediendo. Además los árboles tienen un buen manejo de los valores faltantes, lo cuál se notó a la hora de predecir con los árboles entrenados con dataset que incluían datos faltantes. Aunque capaz se podría haber tenido una performance mejor con otro modelo.
+
+A futuro se podría profundizar un poco más en el análisis exploratorio de los datos, enfocarse en las variables que tienen más importancia en el modelo, para poder entender mejor por qué lo son. Explorar más las características de nuestro dataset. Podría ser interesantes analisar la correlación entre variables(?). También se podría ver como predice nuestro modelo para datos nuevos, en este caso podríamos obtener nuevas observaciones de las descartadas del dataset original, el cuál originalmente tenía 900.000 observaciones. Se podría armar los conjuntos para train, test y validación distinto(?)
