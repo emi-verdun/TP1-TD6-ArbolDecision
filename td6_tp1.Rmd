@@ -22,10 +22,9 @@ library(PerformanceAnalytics)
 # Introducción
 ## Ejercicio 1
 
-Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones. Tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es. El recorte tomado esta relativamente balanceado, tiene aproximadamente mitad de observaciones de personas alcoholicas y mitad no alcoholicas.
+Se ha tomado para la realización del trabajo un dataset de más de 900.000 observaciones que ha sido recortado a 50000 observaciones. Tiene como objetivo la predicción de alcoholismo en una persona a partir de diferentes predictores respectivos a su salud. El valor que toma la predicción es "Y" la persona es alcoholica o "N" si no lo es. El recorte tomado esta relativamente balanceado, tiene aproximadamente mitad de observaciones de personas alcohólicas y mitad no alcohólicas.
 
 Dicho conjunto de datos fue obtenido en Kaggle y se encuentra disponible en el siguiente link: https://www.kaggle.com/datasets/sooyoungher/smoking-drinking-dataset
-
 
 Los atributos predictores descriptos en el dataset son 22 e incluyen: 
 "Age" (numérico), "Sex" (Categórico), "Height", "Weight", visión en cada ojo (binario: 0=normal, 1=abnormal), escucha en cada oído (binario: 0=normal, 1=abnormal), valores de colesterol, presión arterial y diferentes parámetros relevantes en salud.
@@ -41,22 +40,37 @@ Se cargan los datos a utilizar.
 data <- read.csv("drinking_dataset.csv")
 ```
 
-Descripción de las variables principales del dataset
-```{r}
-summary(data)
-str(data)
-```
-Se convierte a factor las columnas de caracteres de "sex" y la columna para la predicción de "DRK_YN".
+Como preprocesamiento del dataset, se convierte a factor las columnas de caracteres de "sex" y la columna para la predicción de "DRK_YN".
 Se convierte la columna de observaciones de clase en binario, para poder luego utilizar correctamente las métricas.
 ```{r}
 data$sex <- as.factor(data$sex)
 data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
 ```
 
-
 ### Visualizaciones
+A continuación, para hacer una exploración inicial de cuáles son las variables en las cuales se encuentra una mayor correlación con el alcoholismo, se realiza el siguiente gráfico con las variables predictoras numéricas (se excluye la variable "sex", dado que no es del tipo numérico):
 
-Queremos ver si el sexo es un factor importante a la hora de predecir si una persona es alcoholica. Calculamos las cantidades de alcoholicos por sexo, pero como no hay la misma cantidad de hombres y mujeres en el dataset, calculamos la proporción de alcoholicos para poder compararlas.
+```{r grafico_correlacion}
+correlaciones_objetivo <- cor(predictoras_numericas, data$DRK_YN)
+correlaciones_df <- as.data.frame(correlaciones_objetivo)
+correlaciones_df$Variable <- rownames(correlaciones_df)
+colnames(correlaciones_df)[1] <- "Correlación"
+
+ggplot(data = correlaciones_df, aes(x = reorder(Variable, Correlación), y = Correlación, fill = Correlación)) + 
+  geom_bar(stat = "identity") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlación") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 10)) +
+  coord_flip() + 
+  labs(x = "Variable Predictora", y = "Correlación con DRK_YN")
+  
+```
+Aquí se puede visualizar cuáles son las variables consideradas "más importantes" o a partir de las cuáles se pueden tomar decisiones más importantes a la hora del armado del árbol de decisión. Más allá de la variable "sex", se obtiene una mayor correlación entre el alcoholismo y la edad, el nivel de fumador de la persona, el valor de hemoglobina, el peso y el valor de gamma_GTP en las personas. Una vez armado el árbol se comprobará en efecto si la importancia de los features son verdaderamente así.
+
+Dicho esto, se quiere ver si el sexo es un factor importante a la hora de predecir si una persona es alcoholica, para lo cual se calcula las proporciones de alcoholicos por sexo, pero como no hay la misma cantidad de hombres y mujeres en el dataset, calculamos la proporción de alcoholicos para poder compararlas.
+
 ```{r plots}
 cant_f <- sum(data$sex == "Female")
 cant_m <- sum(data$sex == "Male")
@@ -106,9 +120,11 @@ barplot(prop_alc, names.arg = sex, col = colores,
         main = "Proporción de Alcoholicos por Sexo", xlab = "Sexo",
         ylim = c(0, val_max + 0.2))
 ```
+
 Hay una diferencia entre las proporciones de alcoholicos según su sexo. La proporción de alcoholicos de sexo masculino es más grande. Esto nos dice que la variable 'sex' puede tener gran importancia en la predicción de si alguien es alcoholico.
 
-Ahora queremos ver cual es la distribución de edad en nuestra muestra de alcoholicos y no alcoholicos
+Ahora queremos ver cual es la distribución de edad en nuestra muestra de alcoholicos y no alcoholicos.
+
 ```{r}
 boxplot(age ~ DRK_YN, data=data, 
         main="Comparación de edades entre alcoholicos y no alcoholicos",
@@ -117,9 +133,11 @@ boxplot(age ~ DRK_YN, data=data,
         names = c("No Alcoholicos", "Alcoholicos"),
         ylim = c(10, 90))
 ```
+
 Se puede ver que hay cierta diferencia en la edad media de ambos grupos, considerando que hay casi la misma cantidad de alcoholicos y no alcoholicos en el dataset, la edad media en el grupo de no alcoholicos es mayor. Entonces la edad puede llegar a ser una variable a tomar en cuenta a la hora de predecir.
 
 Queremos ver si hay alguna relación entre fumar tabaco y ser alcohólico. Para ello vamos a mirar la proporción de personas alcohólicas en tres grupos: 1-nunca fumó, 2-ya no fuma y 3-fuma.
+
 ```{r}
 nunca_fumo <- sum(data$SMK_stat_type_cd == 1)
 ya_no_fuma <- sum(data$SMK_stat_type_cd == 2)
@@ -140,6 +158,7 @@ prop_alc_F
 Hay diferencia en la proporción de alcoholicos según estos grupos. Hay una proporción menor de alcoholicos en el grupo de los que nunca fumaron.
 
 Visualizamos estos datos
+
 ```{r}
 prop_alc_smoke <- c(prop_alc_NF, prop_alc_YNF, prop_alc_F)
 sex <- c("Nunca fumó", "Ya no fuma", "Fuma")
@@ -151,33 +170,14 @@ barplot(prop_alc_smoke, names.arg = sex, col = colores,
         main = "Proporción de Alcoholicos por según relación con Fumar",
         xlab = "Cigarrillo", ylim = c(0, val_max + 0.1))
 ```
-Podemos pensar que SMK_stat_type_cd va a ser una variable importante a la hora de predecir si alguien es alcohólico. Ya que si alguien nunca fumo es más probable que no sea alcoholico. Y si alguien fumo alguna vez es más probable que sea alcoholico.
-
-
-```{r}
-predictoras <- data[, -which(names(data) == "DRK_YN")]
-predictoras_numericas <- predictoras[, sapply(predictoras, is.numeric)]
-matriz_correlacion <- cor(predictoras_numericas)
-
-matriz_correlacion_melt <- melt(matriz_correlacion)
-
-# Crear el gráfico de correlación
-ggplot(data = matriz_correlacion_melt, aes(Var1, Var2, fill = value)) + 
-  geom_tile() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
-                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
-                       name="Correlación") +
-  theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0, 
-                                   size = 10, hjust = 1)) +
-  coord_fixed()
-
-```
+Podemos pensar que SMK_stat_type_cd va a ser una variable importante a la hora de predecir si alguien es alcohólico. Ya que si alguien nunca fumo es más probable que no sea alcoholico. Y si alguien fumo alguna vez es más probable que sea alcohólico.
 
 
 
 ## Ejercicio 3
-```{r division, echo=FALSE}
+Para comenzar con un modelo básico de predicción respecto si un individuo es alcohólico o no, se generan 3 conjuntos de datos a partir de las 50.000 observaciones obtenidas. El conjunto de train constará de 35.000 observaciones correspondientes al 70% del dataset, dado que será de máxima importancia para la generación de los árboles que permitirán realizar las predicciones. Con el 30% de los datos restantes, se guarda un 15% para el conjunto de validación, con el cual se podrá optimizar los modelos a partir del rendimiento de predicciones sobre el mismo, y 15% restante corresponderá al conjunto de test, utilizado para chequear cuán bien el modelo responde a datos completamente nuevos.
+
+```{r division_data}
 set.seed(1234)
 nobs <- nrow(data)
 #obtengo el 70% del dataset y se lo asigno a train
@@ -192,6 +192,8 @@ val <- resto[ival,]
 test <- resto[-ival,]
 ```
 
+Una vez disponibles los 3 conjuntos, se genera un árbol de decisión básico, sin manipulación de hiperparámetros.
+
 ```{r}
 set.seed(1234)
 tree <- rpart(formula = DRK_YN ~ sex + age + height + weight + waistline + sight_left + sight_right + hear_left + hear_right + SBP + DBP + BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride + hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT + gamma_GTP + SMK_stat_type_cd,
@@ -204,8 +206,11 @@ tree$control
 ```
 Como hiperparámetro por defecto se toma un valor de minsplit = 20, es decir, que en una hoja del árbol deben haber por lo menos 20 observaciones para poder realizar un split y crear nuevas regiones.
 Por otro lado, se establece que como mínimo una hoja debe tener 7 observaciones con el valor default de minbucket y que como máxima profundidad el árbol puede tener 30 niveles.
+Además, el valor de xval se establece como 10 y el valor de cp como 0.01.
+Todos estos valores luego serán modificados a la hora de optimizar el árbol obtenido.
 
 Con estos hiperparámetros por defecto y con el árbol obtenido, obtenemos la siguiente visualización del árbol de clasificación.
+
 ```{r grafico_arbol}
 rpart.plot(tree)
 ```
@@ -247,6 +252,7 @@ resultados <- data.frame(
 ```
 
 Una vez obtenidos estos resultados, se puede proceder a realizar un análisis de performance del modelo, para lo cual se explorarán la matriz de confusión resultante y los valores de accuracy, precision y recall, el F1-score y el valor de AUC-ROC.
+
 ```{r matrizConfusion}
 matriz_confusion <- table(Real=test$DRK_YN, Predicho=prediccion_test)
 matriz_confusion
@@ -281,20 +287,15 @@ Se almacena el mejor resultado (aquellos valores con los cuales se obtenga el mo
 
 ```{r}
 optimizacion_arbol <- function(train, val, test, valores_depth, valores_bucket, valores_split){
-    #Se crea dataframe para almacenar resultados de combinaciones y poder visualizar
     resultados <- data.frame(maxdepth = integer(), minsplit = integer(), minbucket =                   integer(), auc = numeric())
-    
-    #Valores de cp y xval fijos en 0
-    cp = 0
-    xval = 0
-    
-    #Grid search
+    #grid search
     for (d in valores_depth){
       for (b in valores_bucket){
         for (s in valores_split){
           tree <- rpart(formula=DRK_YN ~ sex + age + height + weight + waistline +                     sight_left + sight_right + hear_left + hear_right + SBP + DBP +                      BLDS + tot_chole + HDL_chole + LDL_chole + triglyceride +                            hemoglobin + urine_protein + serum_creatinine + SGOT_AST + SGOT_ALT                   + gamma_GTP + SMK_stat_type_cd,
               data = train, method = "class",
               control = rpart.control(
+              #Valores de cp y xval fijos en 0
               cp = 0,          
               xval = 0,        
               maxdepth = d,
@@ -312,24 +313,26 @@ optimizacion_arbol <- function(train, val, test, valores_depth, valores_bucket, 
       }
     }
           
-    #valores_optimizacion <- resultados[which.max(resultados$auc), ]
     return(resultados)
-    #return(valores_optimizacion)
 }
 
 
-valores_depth = c(2,5,6,7,8,9,10,15,20,40)
-valores_split = c(2,5,7,10,50,100,500,1000,5000,10000)
-valores_bucket = c(2,5,7,10,20,50,100,500,1000,5000,10000)
+valores_depth = c(5,6,7,8,9,10,15,20,30)
+valores_split = c(5,10,25,50,100,500,1000,5000)
+valores_bucket = c(2,5,7,10,20,50,100,500,1000, 2000)
 
 resultados <- optimizacion_arbol(train, val, test, valores_depth, valores_bucket, valores_split)
 
+#hiperparámetros que optimizan el modelo, es decir, combinación con la que se obtiene el mayor auc para el conjunto de validación entrenando el árbol con ella
 mejor_resultado <- resultados[which.max(resultados$auc),]
-
 ```
 
+El modelo optimizado, con los valores explorados, termina utilizando los siguientes valores como hiperparámetros: `r mejor_resultado$maxdepth`, `r mejor_resultado$minsplit` y `r mejor_resultado$minbucket`.
+
+Para poder visualizar por qué estos valores son los que se terminan utilizando y cómo el valor de auc sobre el conjunto de validación evoluciona según los diferentes valores de hiperparámetros explorados, se quiere visualizar cuál auc máximo fue encontrado en cada uno de ellos. Para ello, se realiza la siguiente función que permite recopilar lo dicho y se generan los gráficos deseados.
+
 ```{r}
-# Definir la función que encuentra el AUC máximo para cada valor de hiperparámetro
+# Función que encuentra el AUC máximo para cada valor de hiperparámetro
 max_auc_segun_parametro <- function(resultados, parametro) {
   max_auc <- numeric()
   valores_unicos_parametro <- unique(resultados[[parametro]])
@@ -349,7 +352,7 @@ max_auc_minsplit <- max_auc_segun_parametro(resultados, "minsplit")
 max_auc_minbucket<- max_auc_segun_parametro(resultados, "minbucket")
 ```
 
-Una vez obtenidos los mayores auc values para cada hiperparámetro, se procede a generar gráficos para la visualización de la evolución de los valores de auc según la elección de parámetros.
+Una vez obtenidos los mayores auc values para cada valor posible de cada hiperparámetro, se procede a generar gráficos para la visualización de la evolución de los valores de auc según la elección de parámetros.
 
 ```{r minsplit}
 plot(max_auc_minsplit$parametro, max_auc_minsplit$max_auc, 
@@ -361,6 +364,8 @@ plot(max_auc_minsplit$parametro, max_auc_minsplit$max_auc,
      main = "Max AUC según Minsplit", 
      ylim = c(min(max_auc_minsplit)-0.01, 0.8))     
 ```
+En la búsqueda de minsplit, todos los valores chicos dan un valor máximo de auc bastante similar, casi de 0.79. Lo interesante resulta ser que a medida que se aumenta el valor de minsplit, el auc máximo va disminuyendo. Al hacer el modelo menos flexible, evitando la generación de tantos splits y por lo tanto de mayor cantidad de hojas, se ve cierto efecto negativo sobre la capacidad predictiva sobre el conjunto de datos de validación.
+
 ```{r minbucket}
 plot(max_auc_minbucket$parametro, max_auc_minbucket$max_auc, 
      type = "b",                          
@@ -371,6 +376,8 @@ plot(max_auc_minbucket$parametro, max_auc_minbucket$max_auc,
      main = "Max AUC según Minbucket",
      ylim = c(min(max_auc_minbucket)-0.001, 0.79))     
 ```
+En cuanto al efecto de minbucket sobre la performance, se denota nuevamente que a valores muy altos esta disminuye. Sin embargo, los valores más chicos tampoco son los óptimos. Se logra la mejor performance con un mínimo de 50 observaciones necesarias en una hoja.
+
 ```{r maxdepth}
 plot(max_auc_maxdepth$parametro, max_auc_maxdepth$max_auc, 
      type = "b",                          
@@ -381,6 +388,7 @@ plot(max_auc_maxdepth$parametro, max_auc_maxdepth$max_auc,
      main = "Max AUC según maxdepth",
      ylim = c(min(max_auc_maxdepth)-0.001, 0.79))     
 ```
+Por último, maxdepth presenta un pico en una profundidad de 9, siendo que el valor del auc sobre el conjunto de validación antes y a partir de ello disminuye.
 
 
 ## Ejercicio 6
@@ -399,15 +407,19 @@ tree_optimizado <-  rpart(formula=DRK_YN ~ .,
       )
 rpart.plot(tree_optimizado)
 ```
-Como es notorio, este árbol resulta mucho más complejo y de análisis de variables mucho más exhaustivo que el anterior. Para mejor comparación en cuanto a sus diferencias en rendimiento y capacidad predictiva, tomamos el valor de auc-roc del nuevo modelo respecto al conjunto de test, y comparamos dicho valor al obtenido con el modelo anterior que era de `r auc_roc`.
+Como es notorio, este árbol resulta mucho más complejo y de análisis de variables mucho más exhaustivo que el anterior. Si bien se pierde capacidad interpretativa en la visualización, al haber una mayor cantidad de hojas notable y más niveles, el objetivo planteado (aumentar lo mayor posible el valor del área de auc-roc para el conjunto de validación y testing) se cumple con los hipervalores que justamente hacen que el árbol se vuelva tan extenso. Si se optara por usar valores más altos de minsplit y minbucket con tal de obtener una mejor visualización del árbol, se perdería en auc-roc, como se ha analizado en el punto anterior.
+
+Para mejor comparación en cuanto a las diferencias en rendimiento y capacidad predictiva del árbol con parámetros default y el árbol optimizado, tomamos el valor de auc-roc del nuevo modelo respecto al conjunto de test, y comparamos dicho valor al obtenido con el modelo anterior que era de `r auc_roc`.
+
 ```{r auc}
 obs = test$DRK_YN #valor verdadero
 pred = predict(tree_optimizado,test,type="prob")[, "1"]
 auc_roc_optimizacion <- auc(obs,pred)
 ```
-Se puede analizar cómo es mejorado el valor de auc-roc en este modelo optimizado, con el cual casi llega a 0.8, lo cual es indicativo de una mejora predictiva de alrededor de 8 puntos respecto al modelo anterior. 
+Se puede analizar cómo es mejorado el valor de auc-roc en este modelo optimizado a la hora de clasificar sobre el conjunto de test,con el cual se llega a un valor de `r auc_roc_optimizacion`, lo cual es indicativo de una mejora predictiva de alrededor de 8 puntos respecto al modelo anterior. 
 
 A continuación, para continuar viendo diferencias respecto al árbol planteado en el ejercicio 3, se analizan las variables principales de este nuevo modelo:
+
 ```{r variables}
 variable_importance <- tree_optimizado$variable.importance
 
@@ -415,11 +427,9 @@ par(mar = c(11, 7, 4, 2) + 0.1, mgp = c(4, 1, 0))
 barplot(sort(variable_importance, decreasing = TRUE), 
         main = "Importancia de las Variables Predictoras",
         ylab = "Importancia",
-        las = 2,          # Rotar las etiquetas en el eje x
+        las = 2,        
         col = "yellowgreen",
         ylim = c(0, max(variable_importance) + 200))
-
-mtext("Variables", side = 1, line = 9, cex = 1.2)
 
 ```
 
@@ -441,9 +451,9 @@ asignar_na <- function(col, porcentaje){
 }
 ``` 
 
-```{r conjuntos}
-#Índices para la división de los datasets (itrain, ival) iguales a los ya obtenidos en el punto 3, con tal de asegurar que los datos en train, validacion y test son los mismos en cada versión
+A continuación, se generan los conjuntos de datos a los cuales se les asigna los valores faltantes. Vale tener en cuenta que los índices para la división de los datasets (itrain, ival) son iguales a los ya obtenidos en el punto 3, con tal de asegurar que los datos en train, validacion y test son los mismos en cada versión.
 
+```{r conjuntos}
 # 20% NAs en data
 data_20pc_na <- data
 data_20pc_na[,-which(names(data) == "DRK_YN")] <- lapply(data_20pc_na[,-which(names(data) == "DRK_YN")], asignar_na, porcentaje = 20)
@@ -477,8 +487,10 @@ val_75 <- resto[ival,]
 test_75 <- resto[-ival,]
 ```
 
+Una vez obtenidos todos los conjuntos de datos, se procede a encontrar los parámetros óptimos para cada árbol y generar cada uno de ellos.
 
 ```{r tree 20%}
+set.seed(1234)
 hiperparametros_20na <- optimizacion_arbol(train_20, val_20, test_20, valores_depth, valores_bucket, valores_split)
 mejor_resultado_20na <- hiperparametros_20na[which.max(hiperparametros_20na$auc),]
 
@@ -496,6 +508,7 @@ rpart.plot(tree_20pc_na)
 
 
 ```{r tree 50%}
+set.seed(1234)
 hiperparametros_50na <- optimizacion_arbol(train_50, val_50, test_50, valores_depth, valores_bucket, valores_split)
 mejor_resultado_50na <- hiperparametros_50na[which.max(hiperparametros_50na$auc),]
 
@@ -513,6 +526,7 @@ rpart.plot(tree_50pc_na)
 
 
 ```{r tree 75%}
+set.seed(1234)
 hiperparametros_75na <- optimizacion_arbol(train_75, val_75, test_75, valores_depth, valores_bucket, valores_split)
 mejor_resultado_75na <- hiperparametros_75na[which.max(hiperparametros_75na$auc),]
 
@@ -527,9 +541,28 @@ tree_75pc_na <-  rpart(formula=DRK_YN ~ ., data = train_75, method = "class",
       )
 rpart.plot(tree_75pc_na)
 ```
-Uno de los puntos que resulta interesante comparar a partir de la visualización de los diferentes árboles es la organización y cuán concisos son. En un principio pareció chocante que a medida que aumentan los valores faltantes, los árboles van acrecentando y haciendose más extensos. Una explicación encontrada al respecto es que es posible que a mayor cantidad de datos faltantes, más díficil resulta encontrar correlaciones entre las variables predictoras y la variable objetivo, por lo tanto es necesario a la hora de predecir tomar más decisiones y explorar más escenarios.
 
-```{r comparacion_aucroc}
+Uno de los puntos que resulta interesante comparar a partir de la visualización de los diferentes árboles es la organización y la extensión de los mismos. En un principio pareció singular que a medida que aumentan los valores faltantes, los árboles van tomando una forma más lineal y más profunda. De hecho, si se analizan los hiperparámetros que optimizan cada uno de estos árboles, se puede ver que a medida que crece la proporción de missings en los datasets se incrementan también los valores de maxdepth, minsplit y minbucket tomados. 
+En el árbol inicial optimizado se cuenta con un maxdepth de 9, así como en el de 20% NAs. Pero en este último ya se observa un valor de minsplit de 100 observaciones bastante mayor al del árbol con los conjuntos de datos originales. Ya para los árboles de 50% y 75% valores faltantes, el maxdepth establecido para la optimización es de 30, mientras que el minsplit incrementa a 1000 observaciones en ambos.
+Es decir, se puede ver cómo se complejiza la construcción de las regiones y la toma de decisiones en los árboles a medida que disminuyen los datos conocidos, siendo que probablemente resulta más complicado determinar correlaciones entre las variables predictoras y la variable de respuesta a medida que se tienen menos valores disponibles.
+
+Si se compara además el rendimiento en validación de cada uno de estos árboles se puede ver cómo se deteriora el auc-valor de manera bastante drástica.
+
+```{r comparacion_aucroc_validacion}
+porcentajes <- c(0,20,50,75)
+valores_auc_roc <- c(mejor_resultado$auc, mejor_resultado_20na$auc,  mejor_resultado_50na$auc, mejor_resultado_75na$auc)
+plot(porcentajes, valores_auc_roc, 
+     type = "b",                          
+     pch = 19,                            
+     col = "darkblue",                        
+     xlab = "Porcentaje de NAs en validacion",           
+     ylab = "AUC-ROC",                    
+     main = "Evolución de AUC-ROC a partir de valores faltantes en validación") 
+```
+
+Pero, más que eso nos interesa ver cómo funciona cada uno de estos modelos en el conjunto de test y compararlos entre sí.
+
+```{r comparacion_aucroc_test}
 obs = test_20$DRK_YN
 pred = predict(tree_20pc_na,test,type="prob")[, "1"]
 auc_roc_20 <- auc(obs,pred)
@@ -541,13 +574,11 @@ auc_roc_50 <- auc(obs,pred)
 obs = test_75$DRK_YN
 pred = predict(tree_75pc_na,test,type="prob")[, "1"]
 auc_roc_75 <- auc(obs,pred)
-
-auc_roc_20
-auc_roc_50
-auc_roc_75
 ```
 
-El auc-roc va disminuyendo a medida que aumentan los NAs presentes en los datasets. Se deteriora la capacidad predictiva del modelo. Como se puede visualizar en el siguiente gráfico, a medida que aumenta la cantidad faltante de datos, el valor de AUC-ROC va disminuyendo.
+Con el conjunto de test, en el modelo generado con 20% de NAs se obtiene un auc_roc de `r auc_roc_20`, en el de 50% uno de `r auc_roc_50` y en el de 75% uno de `r auc_roc_75`.
+
+En definitiva, el auc-roc va disminuyendo a medida que aumentan los NAs presentes en los datasets. Es decir, se deteriora la capacidad predictiva del modelo. Como se puede visualizar en el siguiente gráfico, a medida que aumenta la cantidad faltante de datos, el valor de auc-roc en las predicciones sobre el conjunto de test va disminuyendo.
 
 ```{r grafico_auc}
 porcentajes <- c(0,20,50,75)
@@ -556,20 +587,24 @@ plot(porcentajes, valores_auc_roc,
      type = "b",                          
      pch = 19,                            
      col = "darkblue",                        
-     xlab = "Porcentaje de NAs en  dataset",           
+     xlab = "Porcentaje de NAs en test",           
      ylab = "AUC-ROC",                    
-     main = "Evolución de AUC-ROC a partir de valores faltantes")     
+     main = "Evolución de AUC-ROC a partir de valores faltantes en test")     
 
 ```
 
+Si bien la pérdida en valores de auc no es tan drástica como lo es en el conjunto de validación, aun así se evidencia que las predicciones son cada vez más imprecisas sobre el conjunto de test a medida que se tienen más valores de NAs en los datos.
 
 # Conclusiones
 ## Ejercicio 8
 
 En el análisis se vió las variables que más importancia tenían en la predicción, algunas era esperable que lo fueran, a partir de los resultados de la exploración del dataset, el sexo, y otras sorprendió que estuvieran o que no. 
-Se vió la importancia de optimizar nuestro modelo para obtener mejores resultados, modificando los hiperparámetros del árbol. Para nuestro modelo los hiperparámetros que más mejoraban el auc-roc eran valores de minbucket y minsplit chicos y valores de maxdepth entre 5 y 10.
-Además se observó el impacto que tienen los valores faltantes en la calidad de un modelo, tener valores faltantes empeora el rendimiento de nuestro modelo, mientras más valores faltantes más rendimiento pierde nuestro modelo. Aunque se vió los árboles que se entrenaron con datasets que incluían datos faltantes, pero que se optimizó sus hiperparámetros, tuvieron mejor rendimiento que nuestro árbol básico con hiperparámetros por defecto.
+Se vió la importancia de optimizar nuestro modelo para obtener mejores resultados, modificando los hiperparámetros del árbol. Para nuestro modelo los hiperparámetros que más mejoraban el auc-roc al no tener datos faltantes eran valores de minbucket y minsplit chicos y un valor de maxdepth de 9.
 
-Para el problema planteado resultó útil utilizar árboles de decisión ya que nuestro problema era de clasificación binaria y se ve claramente en que variables se basa para hacer las predicciones, lo cuál ayuda también al análisis. El poder ver el árbol gráficamente es de gran ayuda para interpretar lo que esta sucediendo. Además los árboles tienen un buen manejo de los valores faltantes, lo cuál se notó a la hora de predecir con los árboles entrenados con dataset que incluían datos faltantes. Aunque capaz se podría haber tenido una performance mejor con otro modelo.
+Además se observó el impacto que tienen los valores faltantes en la calidad de un modelo, tener valores faltantes empeora el rendimiento sobre las predicciones No obstante, se vió los árboles que se entrenaron con datasets que incluían datos faltantes, pero que se optimizó sus hiperparámetros, tuvieron mejor rendimiento que el árbol básico con hiperparámetros por defecto.
 
-A futuro se podría profundizar un poco más en el análisis exploratorio de los datos, enfocarse en las variables que tienen más importancia en el modelo, para poder entender mejor por qué lo son. Explorar más las características de nuestro dataset. Podría ser interesantes analisar la correlación entre variables(?). También se podría ver como predice nuestro modelo para datos nuevos, en este caso podríamos obtener nuevas observaciones de las descartadas del dataset original, el cuál originalmente tenía 900.000 observaciones. Se podría armar los conjuntos para train, test y validación distinto(?)
+Para el problema planteado resultó útil utilizar árboles de decisión ya que nuestro problema era de clasificación binaria y se ve claramente en que variables se basa para hacer las predicciones, lo cuál ayuda también al análisis. El poder ver el árbol gráficamente es de gran ayuda para interpretar lo que esta sucediendo. Además los árboles tienen un buen manejo de los valores faltantes, lo cuál se notó a la hora de predecir con los árboles entrenados con dataset que incluían datos faltantes, aunque quizá se podría haber tenido una performance mejor con otro modelo.
+
+A futuro se podría profundizar un poco más en el análisis exploratorio de los datos, enfocarse en las variables que tienen más importancia en el modelo y hacer un recorte de aquellas que parecen no aportar mucho. Podría ser interesantes analisar la correlación entre variables predictoras, más allá de la relación de cada una de ellas con el valor a predecir. 
+
+Por último, vale recalcar que se podrían explorar diferentes datasets para probar diferentes resultados u optimizar aún más los modelos de predicción, teniendo en cuenta que el dataset original contaba con más de 900.000 datos y representa una gran oportunidad de información a la hora de entrenar el modelo.
