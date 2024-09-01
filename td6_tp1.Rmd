@@ -6,17 +6,10 @@ output: pdf_document
 ---
 
 ```{r libr, echo=FALSE}
-install.packages("corrplot")
-install.packages("PerformanceAnalytics")
-install.packages("reshape2")
-
-library(reshape2)
 library(rpart)
 library(rpart.plot)
 library(Metrics)
 library(ggplot2)
-library(corrplot)
-library(PerformanceAnalytics)
 ```
 
 # Introducción
@@ -51,6 +44,8 @@ data$DRK_YN <- ifelse(data$DRK_YN == "Y", 1, 0)
 A continuación, para hacer una exploración inicial de cuáles son las variables en las cuales se encuentra una mayor correlación con el alcoholismo, se realiza el siguiente gráfico con las variables predictoras numéricas (se excluye la variable "sex", dado que no es del tipo numérico):
 
 ```{r grafico_correlacion}
+predictoras <- data[, !names(data) %in% "DRK_YN"]
+predictoras_numericas <- predictoras[, sapply(predictoras, is.numeric)]
 correlaciones_objetivo <- cor(predictoras_numericas, data$DRK_YN)
 correlaciones_df <- as.data.frame(correlaciones_objetivo)
 correlaciones_df$Variable <- rownames(correlaciones_df)
